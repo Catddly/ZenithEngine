@@ -9,5 +9,7 @@ target("ZenithApp")
 
     add_deps("ZenithEngine")
 
+    add_includedirs("$(projectdir)/ZenithEngine/")
+
     add_files("Main.cpp")
 target_end()

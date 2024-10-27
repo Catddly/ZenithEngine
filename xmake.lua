@@ -25,7 +25,5 @@ if is_mode("release") then
     set_optimize("fastest")
 end
 
-add_includedirs("$(projectdir)/ZenithEngine/")
-
 includes("ZenithEngine/xmake.lua")
 includes("ZenithApp/xmake.lua")

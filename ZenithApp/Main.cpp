@@ -1,9 +1,7 @@
-#include <iostream>
-
-#include "MyMath.h"
+#include "ZenithEngine.h"
 
 int main()
 {
-	std::cout << "Hello!\n";
-	AddWithLog(1, 2);
+	ZenithEngine engine;
+	RunZenithEngine(engine);
 }
