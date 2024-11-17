@@ -1,67 +1,124 @@
 #include "Engine.h"
+
 #include "Core/Assertion.h"
+#include "Core/Core.h"
 #include "Log/Log.h"
 
-bool ZenithEngine::PreInitialize()
+namespace ZE::Engine
 {
-	m_pLogModule = new LogModule;
+	bool ZenithEngine::PreInitialize()
+	{
+		m_pLogModule = new Log::LogModule;
+		m_pCoreModule = new Core::CoreModule;
 
-	m_ModuleManager.RegisterModule(m_pLogModule);
+		//-------------------------------------------------------------------------
+
+		ZE_CHECK(!m_bIsPreInitialized);
+
+		PreinitializeModule(m_pLogModule);
+		PreinitializeModule(m_pCoreModule);
+
+		m_bIsPreInitialized = true;
+		return true;
+	}
+
+	bool ZenithEngine::Initialize()
+	{
+		ZE_CHECK(!m_bIsInitialized);
+
+		m_bIsInitialized = true;
+		return true;
+	}
+
+	void ZenithEngine::Shutdown()
+	{
+		ZE_CHECK(m_bIsInitialized);
+	}
+
+	void ZenithEngine::PostShutdown()
+	{
+		ZE_CHECK(m_bIsPreInitialized);
+
+		m_pLogModule->ShutdownModule();
+		m_pCoreModule->ShutdownModule();
+
+		//-------------------------------------------------------------------------
+
+		delete m_pCoreModule;
+		delete m_pLogModule;
+	}
+
+	void ZenithEngine::Run()
+	{
+		ZE_CHECK(m_bIsPreInitialized);
+		ZE_CHECK(m_bIsInitialized);
+
+		while (!m_RequestExit)
+		{
+			BuildFrameTasks(m_EngineTaskFlow);
+
+			m_TaskExecutor.run(m_EngineTaskFlow).wait();
+			
+			ClearFrameTasks();
+		}
+	}
 
 	//-------------------------------------------------------------------------
+
+	void ZenithEngine::BuildFrameTasks(tf::Taskflow& taskFlow)
+	{
+		ZE_CHECK(taskFlow.empty());
+
+		static uint32_t testCounter = 5;
+
+		auto countDownTask = taskFlow.emplace([&]()
+		{
+			if (testCounter-- == 0)
+			{
+				m_RequestExit = true;
+			}
+		});
+
+		auto coreTask = taskFlow.composed_of(m_pCoreModule->BuildModuleFrameTasks()).name(m_pCoreModule->GetModuleName());
+		auto logTask = taskFlow.composed_of(m_pLogModule->BuildModuleFrameTasks()).name(m_pLogModule->GetModuleName());
 	
-	ZE_CHECK(!m_bIsPreInitialized);
+		// Build task dependencies
 
-	auto result = m_ModuleManager.PreInitializeModules();
-	if (!result.m_bAllSuccess)
-	{
-		ZE_LOG_FATAL("Zenith engine failed to pre-initialized with:\n\t{}", result.m_FailedLog);
-		return false;
+		countDownTask.precede(coreTask);
+		coreTask.precede(logTask);
 	}
 
-	m_bIsPreInitialized = true;
-	return true;
-}
-
-bool ZenithEngine::Initialize()
-{
-	ZE_CHECK(!m_bIsInitialized);
-
-	auto result = m_ModuleManager.InitializeModules();
-	if (!result.m_bAllSuccess)
+	void ZenithEngine::ClearFrameTasks()
 	{
-		ZE_LOG_FATAL("Zenith engine failed to pre-initialized with:\n\t{}", result.m_FailedLog);
-		return false;
+		m_pLogModule->ClearModuleFrameTasks();
+		m_pCoreModule->ClearModuleFrameTasks();
+
+		m_EngineTaskFlow.clear();
 	}
 
-	m_bIsInitialized = true;
-	return true;
-}
-
-void ZenithEngine::Shutdown()
-{
-	ZE_CHECK(m_bIsInitialized);
-
-	m_ModuleManager.ShutdownModules();
-}
-
-void ZenithEngine::PostShutdown()
-{
-	ZE_CHECK(m_bIsPreInitialized);
-	m_ModuleManager.PostShutdownModules();
-
-	//-------------------------------------------------------------------------
-
-	delete m_pLogModule;
-}
-
-void ZenithEngine::Run()
-{
-	ZE_CHECK(m_bIsPreInitialized);
-	ZE_CHECK(m_bIsInitialized);
-
-	while (!m_RequestExit)
+	bool ZenithEngine::PreinitializeModule(Core::IModule* pModule)
 	{
-		//ZE_LOG_INFO("Zenith engine is running!");
+		if (!pModule->InitializeModule())
+		{
+			ZE_LOG_FATAL("Zenith engine failed to pre-initialized module [{}].", pModule->GetModuleName());
+			pModule->ShutdownModule();
+			return false;
+		}
+
+		ZE_LOG_INFO("Module [{}] is initialized.", pModule->GetModuleName());
+		return true;
+	}
+
+	bool ZenithEngine::InitializeModule(Core::IModule* pModule)
+	{
+		if (!pModule->InitializeModule())
+		{
+			ZE_LOG_FATAL("Zenith engine failed to initialized module [{}].", pModule->GetModuleName());
+			pModule->ShutdownModule();
+			return false;
+		}
+
+		ZE_LOG_INFO("Module [{}] is initialized.", pModule->GetModuleName());
+		return true;
 	}
 }

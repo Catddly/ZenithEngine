@@ -4,13 +4,13 @@ set_objectdir("$(projectdir)/Intermediates")
 set_targetdir("$(projectdir)/Target")
 set_configdir("$(projectdir)/")
 
-add_requires("taskflow", "spdlog")
+add_requires("taskflow", "spdlog", "glm")
 
 target("ZenithEngine")
     set_kind("shared")
-    add_defines("ENGINE_DLL_EXPORT=1")
+    add_defines("ZENITH_ENGINE_DLL_EXPORT=1")
 
-    add_packages("taskflow", "spdlog")
+    add_packages("taskflow", "spdlog", "glm")
 
     add_headerfiles("**.h")
     add_files("**.cpp")
@@ -19,6 +19,6 @@ target("ZenithEngine")
 
     -- Debug
     if is_mode("debug") then
-        add_defines("ENABLE_ZENITH_RUNTIME_CHECK=1")
+        add_defines("ZENITH_ENABLE_RUNTIME_CHECK=1")
     end
 target_end()

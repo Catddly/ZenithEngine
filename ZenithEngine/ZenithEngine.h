@@ -1,6 +1,9 @@
 #pragma once
 
-#include "Module.h"
+#include "ModuleDefines.h"
 #include "Engine/Engine.h"
 
-ENGINE_API void RunZenithEngine(ZenithEngine& engine);
+namespace ZE
+{
+	ENGINE_API void RunZenithEngine(Engine::ZenithEngine& engine);
+}

@@ -1,29 +1,55 @@
 #pragma once
 
-#include "Module.h"
-#include "Core/ModuleManager.h"
+#include "ModuleDefines.h"
+#include "Core/Module.h"
 
-class LogModule;
+#include "taskflow/taskflow.hpp"
 
-class ENGINE_API ZenithEngine
+namespace ZE::Core { class CoreModule; }
+namespace ZE::Log { class LogModule; }
+
+namespace ZE::Engine
 {
-public:
+	class ENGINE_API ZenithEngine
+	{
+	public:
 
-	virtual ~ZenithEngine() = default;
+		virtual ~ZenithEngine() = default;
 
-	virtual bool PreInitialize();
-	virtual bool Initialize();
-	virtual void Shutdown();
-	virtual void PostShutdown();
+		virtual bool PreInitialize();
+		virtual bool Initialize();
+		virtual void Shutdown();
+		virtual void PostShutdown();
 
-	virtual void Run();
+		virtual void Run();
 
-private:
+	protected:
 
-	LogModule*					m_pLogModule = nullptr;
+		/* Build frame tasks in user customize order and priority. */
+		virtual void BuildFrameTasks(tf::Taskflow& taskFlow);
 
-	ModuleManager				m_ModuleManager;
-	bool						m_bIsPreInitialized = false;
-	bool						m_bIsInitialized = false;
-	bool						m_RequestExit = false;
-};
+	private:
+
+		/* Clear frame tasks. 
+		*  TODO: may be cached frame tasks?
+		*/
+		void ClearFrameTasks();
+
+		bool PreinitializeModule(Core::IModule* pModule);
+		bool InitializeModule(Core::IModule* pModule);
+
+	protected:
+
+		Core::CoreModule*			m_pCoreModule = nullptr;
+		Log::LogModule*				m_pLogModule = nullptr;
+
+	private:
+
+		tf::Taskflow				m_EngineTaskFlow;
+		tf::Executor				m_TaskExecutor;
+
+		bool						m_bIsPreInitialized = false;
+		bool						m_bIsInitialized = false;
+		bool						m_RequestExit = false;
+	};
+}

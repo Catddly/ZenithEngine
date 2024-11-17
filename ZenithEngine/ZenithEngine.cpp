@@ -1,12 +1,15 @@
 #include "ZenithEngine.h"
 
-void RunZenithEngine(ZenithEngine& engine)
+namespace ZE
 {
-	engine.PreInitialize();
-	engine.Initialize();
+	void RunZenithEngine(Engine::ZenithEngine& engine)
+	{
+		engine.PreInitialize();
+		engine.Initialize();
 
-	engine.Run();
-	
-	engine.Shutdown();
-	engine.PostShutdown();
+		engine.Run();
+
+		engine.Shutdown();
+		engine.PostShutdown();
+	}
 }

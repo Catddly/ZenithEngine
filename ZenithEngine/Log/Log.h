@@ -1,26 +1,41 @@
 #pragma once
 
-#include "Module.h"
-#include "Core/ModuleInterface.h"
+#include "ModuleDefines.h"
+#include "Core/Module.h"
+
 #include "spdlog/spdlog.h"
 #include "spdlog/logger.h"
+
 #include <memory>
 
-class LogModule : public IModule
+namespace ZE::Log
 {
-public:
+	class LogModule : public Core::IModule
+	{
+	public:
 
-	LogModule()
-		: IModule(ModuleInitializePhase::PreInit, "Log")
-	{}
+		LogModule()
+			: Core::IModule(Core::ModuleInitializePhase::PreInit, "Log")
+		{}
 
-	bool InitializeModule() override;
-	void ShutdownModule() override;
+		bool InitializeModule() override;
+		void ShutdownModule() override;
 
-private:
+		virtual tf::Taskflow& BuildModuleFrameTasks() override;
+		virtual void ClearModuleFrameTasks() override;
 
-	std::shared_ptr<spdlog::logger>				m_Logger;
-};
+	private:
+
+		static void TestStaticLoggerTask();
+		void TestLoggerTask();
+
+	private:
+
+		std::shared_ptr<spdlog::logger>				m_Logger;
+	
+		bool										m_TestBranch = false;
+	};
+}
 
 #define ZE_LOG_VERBOSE(...) spdlog::trace(__VA_ARGS__)
 #define ZE_LOG_INFO(...) spdlog::info(__VA_ARGS__)
