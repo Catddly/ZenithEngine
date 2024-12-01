@@ -21,20 +21,20 @@ namespace ZE::Core
 
 	//-------------------------------------------------------------------------
 
-	tf::Taskflow& CoreModule::BuildModuleFrameTasks()
-	{
-		tf::Task firstTask = m_taskFlow.emplace([]()
+	void CoreModule::BuildFrameTasks(tf::Taskflow& taskFlow)
+{
+		tf::Task firstTask = taskFlow.emplace([]()
 		{
 			ZE_LOG_INFO("Init from first task!");
 		});
 
-		tf::Task secondTask = m_taskFlow.emplace([]()
+		tf::Task secondTask = taskFlow.emplace([]()
 		{
 			std::this_thread::sleep_for(std::chrono::seconds(1));
 			ZE_LOG_INFO("Init from second tasks!");
 		});
 
-		tf::Task mathTask = m_taskFlow.placeholder();
+		tf::Task mathTask = taskFlow.placeholder();
 		mathTask.data(&m_MathData).work([mathTask]() {
 			MathCalculationData* pData = static_cast<MathCalculationData*>(mathTask.data());
 			ZE_CHECK(pData);
@@ -45,12 +45,5 @@ namespace ZE::Core
 		});
 
 		firstTask.precede(secondTask, mathTask);
-
-		return m_taskFlow;
-	}
-
-	void CoreModule::ClearModuleFrameTasks()
-	{
-		m_taskFlow.clear();
 	}
 }

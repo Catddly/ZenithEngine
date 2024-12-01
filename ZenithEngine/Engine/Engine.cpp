@@ -3,6 +3,7 @@
 #include "Core/Assertion.h"
 #include "Core/Core.h"
 #include "Log/Log.h"
+#include "Render/Render.h"
 
 namespace ZE::Engine
 {
@@ -26,6 +27,10 @@ namespace ZE::Engine
 	{
 		ZE_CHECK(!m_bIsInitialized);
 
+		m_pRenderModule = new Render::RenderModule;
+
+		InitializeModule(m_pRenderModule);
+
 		m_bIsInitialized = true;
 		return true;
 	}
@@ -33,6 +38,10 @@ namespace ZE::Engine
 	void ZenithEngine::Shutdown()
 	{
 		ZE_CHECK(m_bIsInitialized);
+
+		m_pRenderModule->ShutdownModule();
+
+		delete m_pRenderModule;
 	}
 
 	void ZenithEngine::PostShutdown()
@@ -55,9 +64,10 @@ namespace ZE::Engine
 
 		while (!m_RequestExit)
 		{
-			BuildFrameTasks(m_EngineTaskFlow);
+			BuildFrameTasks(m_TaskFlow);
 
-			m_TaskExecutor.run(m_EngineTaskFlow).wait();
+			// TODO: this thread should work too.
+			m_TaskExecutor.run(m_TaskFlow).wait();
 			
 			ClearFrameTasks();
 		}
@@ -71,6 +81,7 @@ namespace ZE::Engine
 
 		static uint32_t testCounter = 5;
 
+
 		auto countDownTask = taskFlow.emplace([&]()
 		{
 			if (testCounter-- == 0)
@@ -79,21 +90,26 @@ namespace ZE::Engine
 			}
 		});
 
-		auto coreTask = taskFlow.composed_of(m_pCoreModule->BuildModuleFrameTasks()).name(m_pCoreModule->GetModuleName());
-		auto logTask = taskFlow.composed_of(m_pLogModule->BuildModuleFrameTasks()).name(m_pLogModule->GetModuleName());
+		auto coreTask = taskFlow.composed_of(m_pCoreModule->BuildAndGetFrameTasks()).name(m_pCoreModule->GetModuleName());
+		auto logTask = taskFlow.composed_of(m_pLogModule->BuildAndGetFrameTasks()).name(m_pLogModule->GetModuleName());
+
+		auto renderTask = taskFlow.composed_of(m_pRenderModule->BuildAndGetFrameTasks()).name(m_pRenderModule->GetModuleName());
 	
 		// Build task dependencies
 
 		countDownTask.precede(coreTask);
 		coreTask.precede(logTask);
+		logTask.succeed(renderTask);
 	}
 
 	void ZenithEngine::ClearFrameTasks()
 	{
-		m_pLogModule->ClearModuleFrameTasks();
-		m_pCoreModule->ClearModuleFrameTasks();
+		m_pLogModule->ClearFrameTasks();
+		m_pCoreModule->ClearFrameTasks();
 
-		m_EngineTaskFlow.clear();
+		m_pRenderModule->ClearFrameTasks();
+
+		m_TaskFlow.clear();
 	}
 
 	bool ZenithEngine::PreinitializeModule(Core::IModule* pModule)

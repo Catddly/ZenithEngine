@@ -17,8 +17,9 @@ namespace ZE::Core
 	class ENGINE_API IModule
 	{
 	public:
+
 		IModule(ModuleInitializePhase initPhase, const std::string& moduleName = "Unknown")
-			: m_InitPhase(initPhase), m_ModuleName(moduleName)
+			: m_InitPhase(initPhase), m_ModuleName(moduleName), m_TaskFlow(moduleName)
 		{}
 		virtual ~IModule() = default;
 
@@ -28,19 +29,18 @@ namespace ZE::Core
 		virtual bool InitializeModule() = 0;
 		virtual void ShutdownModule() = 0;
 
+		tf::Taskflow& BuildAndGetFrameTasks() { BuildFrameTasks(m_TaskFlow); return m_TaskFlow; }
+		tf::Taskflow& GetFrameTasks() { return m_TaskFlow; }
+		void ClearFrameTasks() { m_TaskFlow.clear(); }
+
 		/*
 		* Build module frame tasks.
-		* @return A taskflow object represent module frame tasks.
 		*/
-		virtual tf::Taskflow& BuildModuleFrameTasks() = 0;
-
-		virtual void ClearModuleFrameTasks() = 0;
+		virtual void BuildFrameTasks(tf::Taskflow& taskFlow) = 0;
 			
-	protected:
-
-		tf::Taskflow						m_taskFlow;
-
 	private:
+
+		tf::Taskflow						m_TaskFlow;
 
 		ModuleInitializePhase				m_InitPhase;
 		std::string							m_ModuleName;

@@ -21,8 +21,7 @@ namespace ZE::Log
 		bool InitializeModule() override;
 		void ShutdownModule() override;
 
-		virtual tf::Taskflow& BuildModuleFrameTasks() override;
-		virtual void ClearModuleFrameTasks() override;
+		virtual void BuildFrameTasks(tf::Taskflow& taskFlow) override;
 
 	private:
 

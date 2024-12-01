@@ -7,6 +7,7 @@
 
 namespace ZE::Core { class CoreModule; }
 namespace ZE::Log { class LogModule; }
+namespace ZE::Render { class RenderModule; }
 
 namespace ZE::Engine
 {
@@ -43,9 +44,11 @@ namespace ZE::Engine
 		Core::CoreModule*			m_pCoreModule = nullptr;
 		Log::LogModule*				m_pLogModule = nullptr;
 
+		Render::RenderModule*		m_pRenderModule = nullptr;
+
 	private:
 
-		tf::Taskflow				m_EngineTaskFlow;
+		tf::Taskflow				m_TaskFlow = { "Engine" };
 		tf::Executor				m_TaskExecutor;
 
 		bool						m_bIsPreInitialized = false;

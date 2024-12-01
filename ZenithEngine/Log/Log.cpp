@@ -38,9 +38,9 @@ namespace ZE::Log
 		m_Logger.reset();
 	}
 
-	tf::Taskflow& LogModule::BuildModuleFrameTasks()
-	{
-		auto [condSwitch, cond, trueTask, falseTask] = m_taskFlow.emplace(
+	void LogModule::BuildFrameTasks(tf::Taskflow& taskFlow)
+{
+		auto [condSwitch, cond, trueTask, falseTask] = taskFlow.emplace(
 			[this]() { m_TestBranch = !m_TestBranch; },
 			[=]() { return m_TestBranch; },
 			&TestStaticLoggerTask,
@@ -49,13 +49,6 @@ namespace ZE::Log
 
 		condSwitch.precede(cond);
 		cond.precede(falseTask, trueTask);
-
-		return m_taskFlow;
-	}
-
-	void LogModule::ClearModuleFrameTasks()
-	{
-		m_taskFlow.clear();
 	}
 
 	void LogModule::TestStaticLoggerTask()

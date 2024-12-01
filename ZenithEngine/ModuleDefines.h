@@ -1,3 +1,5 @@
+#pragma once
+
 #if ZENITH_ENGINE_DLL_EXPORT
 #	define ENGINE_API __declspec( dllexport )
 #else
