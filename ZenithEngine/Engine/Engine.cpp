@@ -4,35 +4,46 @@
 #include "Core/Core.h"
 #include "Log/Log.h"
 #include "Render/Render.h"
+#include "Platform/Window.h"
+#include "Platform/Displayable.h"
+#include "RenderBackend/RenderWindow.h"
+
+#include "GLFW/glfw3.h"
 
 namespace ZE::Engine
 {
 	bool ZenithEngine::PreInitialize()
 	{
-		m_pLogModule = new Log::LogModule;
-		m_pCoreModule = new Core::CoreModule;
-
-		//-------------------------------------------------------------------------
-
 		ZE_CHECK(!m_bIsPreInitialized);
 
-		PreinitializeModule(m_pLogModule);
-		PreinitializeModule(m_pCoreModule);
+		m_pLogModule = new Log::LogModule(*this);
+		if (!PreInitializeModule(m_pLogModule))
+		{
+			return false;
+		}
+
+		m_pCoreModule = new Core::CoreModule(*this);
+		if (!PreInitializeModule(m_pCoreModule))
+		{
+			return false;
+		}
 
 		m_bIsPreInitialized = true;
-		return true;
+		return m_bIsPreInitialized;
 	}
 
 	bool ZenithEngine::Initialize()
 	{
 		ZE_CHECK(!m_bIsInitialized);
 
-		m_pRenderModule = new Render::RenderModule;
-
-		InitializeModule(m_pRenderModule);
+		m_pRenderModule = new Render::RenderModule(*this);
+		if (!InitializeModule(m_pRenderModule))
+		{
+			return false;
+		}
 
 		m_bIsInitialized = true;
-		return true;
+		return m_bIsInitialized;
 	}
 
 	void ZenithEngine::Shutdown()
@@ -40,7 +51,6 @@ namespace ZE::Engine
 		ZE_CHECK(m_bIsInitialized);
 
 		m_pRenderModule->ShutdownModule();
-
 		delete m_pRenderModule;
 	}
 
@@ -48,12 +58,10 @@ namespace ZE::Engine
 	{
 		ZE_CHECK(m_bIsPreInitialized);
 
-		m_pLogModule->ShutdownModule();
 		m_pCoreModule->ShutdownModule();
-
-		//-------------------------------------------------------------------------
-
 		delete m_pCoreModule;
+
+		m_pLogModule->ShutdownModule();
 		delete m_pLogModule;
 	}
 
@@ -79,17 +87,6 @@ namespace ZE::Engine
 	{
 		ZE_CHECK(taskFlow.empty());
 
-		static uint32_t testCounter = 5;
-
-
-		auto countDownTask = taskFlow.emplace([&]()
-		{
-			if (testCounter-- == 0)
-			{
-				m_RequestExit = true;
-			}
-		});
-
 		auto coreTask = taskFlow.composed_of(m_pCoreModule->BuildAndGetFrameTasks()).name(m_pCoreModule->GetModuleName());
 		auto logTask = taskFlow.composed_of(m_pLogModule->BuildAndGetFrameTasks()).name(m_pLogModule->GetModuleName());
 
@@ -97,7 +94,6 @@ namespace ZE::Engine
 	
 		// Build task dependencies
 
-		countDownTask.precede(coreTask);
 		coreTask.precede(logTask);
 		logTask.succeed(renderTask);
 	}
@@ -112,7 +108,7 @@ namespace ZE::Engine
 		m_TaskFlow.clear();
 	}
 
-	bool ZenithEngine::PreinitializeModule(Core::IModule* pModule)
+	bool ZenithEngine::PreInitializeModule(Core::IModule* pModule)
 	{
 		if (!pModule->InitializeModule())
 		{

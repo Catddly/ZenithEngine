@@ -6,6 +6,8 @@
 
 #include <string>
 
+namespace ZE::Engine { class ZenithEngine; }
+
 namespace ZE::Core
 {
 	enum class ModuleInitializePhase
@@ -18,8 +20,8 @@ namespace ZE::Core
 	{
 	public:
 
-		IModule(ModuleInitializePhase initPhase, const std::string& moduleName = "Unknown")
-			: m_InitPhase(initPhase), m_ModuleName(moduleName), m_TaskFlow(moduleName)
+		IModule(Engine::ZenithEngine& engine, ModuleInitializePhase initPhase, const std::string& moduleName = "Unknown")
+			: m_Engine(engine), m_InitPhase(initPhase), m_ModuleName(moduleName), m_TaskFlow(moduleName)
 		{}
 		virtual ~IModule() = default;
 
@@ -38,6 +40,10 @@ namespace ZE::Core
 		*/
 		virtual void BuildFrameTasks(tf::Taskflow& taskFlow) = 0;
 			
+	public:
+
+		Engine::ZenithEngine&				m_Engine;
+
 	private:
 
 		tf::Taskflow						m_TaskFlow;

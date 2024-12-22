@@ -1,8 +1,10 @@
 #include "Core.h"
 
 #include "Core/Assertion.h"
-#include "Log/Log.h"
 #include "Math/MathFormat.h"
+#include "Log/Log.h"
+#include "Platform/Displayable.h"
+#include "Platform/Window.h"
 
 #include <thread>
 #include <chrono>
@@ -11,18 +13,31 @@ namespace ZE::Core
 {
     bool CoreModule::InitializeModule()
     {
+		m_pDisplayable = new Platform::Displayble;
+		if (!m_pDisplayable->Initialize())
+		{
+			m_pDisplayable->Shutdown();
+			return false;
+		}
+
         return true;
     }
 
     void CoreModule::ShutdownModule()
     {
 		ZE_LOG_INFO("Output math result:\n{}", m_MathData.accumMat);
+	
+		if (m_pDisplayable)
+		{
+			m_pDisplayable->Shutdown();
+			delete m_pDisplayable;
+		}
     }
 
 	//-------------------------------------------------------------------------
 
 	void CoreModule::BuildFrameTasks(tf::Taskflow& taskFlow)
-{
+	{
 		tf::Task firstTask = taskFlow.emplace([]()
 		{
 			ZE_LOG_INFO("Init from first task!");
@@ -45,5 +60,9 @@ namespace ZE::Core
 		});
 
 		firstTask.precede(secondTask, mathTask);
+
+		//-------------------------------------------------------------------------
+	
+		m_pDisplayable->ProcessPlatformEvents();
 	}
 }

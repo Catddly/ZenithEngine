@@ -5,9 +5,12 @@
 
 #include "taskflow/taskflow.hpp"
 
+#include <memory>
+
 namespace ZE::Core { class CoreModule; }
 namespace ZE::Log { class LogModule; }
 namespace ZE::Render { class RenderModule; }
+namespace ZE::Platform { class IDisplayable; class Window; }
 
 namespace ZE::Engine
 {
@@ -24,6 +27,12 @@ namespace ZE::Engine
 
 		virtual void Run();
 
+		//-------------------------------------------------------------------------
+
+		Core::CoreModule* GetCoreModule() const { return m_pCoreModule; }
+		Log::LogModule* GetLogModule() const { return m_pLogModule; }
+		Render::RenderModule* GetRenderModule() const { return m_pRenderModule; }
+
 	protected:
 
 		/* Build frame tasks in user customize order and priority. */
@@ -36,23 +45,23 @@ namespace ZE::Engine
 		*/
 		void ClearFrameTasks();
 
-		bool PreinitializeModule(Core::IModule* pModule);
+		bool PreInitializeModule(Core::IModule* pModule);
 		bool InitializeModule(Core::IModule* pModule);
 
 	protected:
 
-		Core::CoreModule*			m_pCoreModule = nullptr;
-		Log::LogModule*				m_pLogModule = nullptr;
+		Core::CoreModule*					m_pCoreModule = nullptr;
+		Log::LogModule*						m_pLogModule = nullptr;
 
-		Render::RenderModule*		m_pRenderModule = nullptr;
+		Render::RenderModule*				m_pRenderModule = nullptr;
 
 	private:
 
-		tf::Taskflow				m_TaskFlow = { "Engine" };
-		tf::Executor				m_TaskExecutor;
+		tf::Taskflow					m_TaskFlow = { "Engine" };
+		tf::Executor					m_TaskExecutor;
 
-		bool						m_bIsPreInitialized = false;
-		bool						m_bIsInitialized = false;
-		bool						m_RequestExit = false;
+		bool							m_bIsPreInitialized = false;
+		bool							m_bIsInitialized = false;
+		bool							m_RequestExit = false;
 	};
 }
