@@ -5,14 +5,16 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 
+namespace ZE::Platform { class IDisplayable; class Window; }
+
 namespace ZE::Core
 {
 	class CoreModule : public IModule
 	{
 	public:
 
-		CoreModule()
-			: IModule(ModuleInitializePhase::PreInit, "Core")
+		CoreModule(Engine::ZenithEngine& engine)
+			: IModule(engine, ModuleInitializePhase::PreInit, "Core")
 		{}
 
 		virtual bool InitializeModule() override;
@@ -29,5 +31,7 @@ namespace ZE::Core
 		};
 
 		MathCalculationData					m_MathData;
+
+		Platform::IDisplayable*				m_pDisplayable = nullptr;
 	};
 }

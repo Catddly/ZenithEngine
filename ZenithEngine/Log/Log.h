@@ -14,8 +14,8 @@ namespace ZE::Log
 	{
 	public:
 
-		LogModule()
-			: Core::IModule(Core::ModuleInitializePhase::PreInit, "Log")
+		LogModule(Engine::ZenithEngine& engine)
+			: Core::IModule(engine, Core::ModuleInitializePhase::PreInit, "Log")
 		{}
 
 		bool InitializeModule() override;

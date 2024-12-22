@@ -87,6 +87,11 @@ namespace ZE::RenderGraph
 		return handle;
     }
 
+    void GraphNode::Execute(NodeJobType&& Job)
+    {
+        m_Job = std::move(Job);
+    }
+
   //  GraphResourceHandle GraphNode::Write(const GraphResourceHandle& handle)
   //  {
 		//ZE_CHECK(handle.m_pGraphNode);
@@ -109,9 +114,30 @@ namespace ZE::RenderGraph
 
     //-------------------------------------------------------------------------
 
+    RenderGraphNodeMemoryAllocator::~RenderGraphNodeMemoryAllocator()
+    {
+        ZE_CHECK(m_Chunks.empty());
+    }
+
+    void RenderGraphNodeMemoryAllocator::Release()
+    {
+        for (auto* pChunk : m_Chunks)
+        {
+            delete pChunk;
+        }
+        m_Chunks.clear();
+    }
+
+    //-------------------------------------------------------------------------
+
     RenderGraph::RenderGraph()
 		: GraphNode(this, "RootNode")
     {
+    }
+
+    RenderGraph::~RenderGraph()
+    {
+        m_Allocator.Release();
     }
 
     GraphNode* RenderGraph::AddNode(const std::string& nodeName)
@@ -138,32 +164,40 @@ namespace ZE::RenderGraph
     void RenderGraph::Execute()
     {
         Build();
+
+		for (auto* pNode : m_ExecutionNodes)
+		{
+			if (pNode->m_Job)
+			{
+				pNode->m_Job();
+			}
+		}
+
+		if (!m_ExecutionNodes.empty())
+		{
+			uint32_t nodeCount = 0;
+
+			std::string nodeSequenceStr;
+			for (auto* pNode : m_ExecutionNodes)
+			{
+				if (++nodeCount < m_ExecutionNodes.size())
+				{
+					nodeSequenceStr += std::format("{} -> ", pNode->m_NodeName);
+				}
+				else
+				{
+					nodeSequenceStr += std::format("{}", pNode->m_NodeName);
+				}
+			}
+
+			ZE_LOG_INFO("Render graph nodes execution order: {}", nodeSequenceStr);
+		}
     }
 
     void RenderGraph::Build()
     {
         // render graph is the root node
         TopologySort(this);
-
-        if (!m_ExecutionNodes.empty())
-        {
-            uint32_t nodeCount = 0;
-
-            std::string nodeSequenceStr;
-            for (auto* pNode : m_ExecutionNodes)
-            {
-                if (++nodeCount < m_ExecutionNodes.size())
-                {
-					nodeSequenceStr += std::format("{} -> ", pNode->m_NodeName);
-                }
-                else
-                {
-					nodeSequenceStr += std::format("{}", pNode->m_NodeName);
-                }
-            }
-
-            ZE_LOG_INFO("Render graph nodes execution order: {}", nodeSequenceStr);
-        }
     }
 
     void RenderGraph::TopologySort(GraphNode* pGraphNode)

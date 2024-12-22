@@ -1,9 +1,10 @@
 #include "ZenithEngine.h"
-//#include <windows.h>
 
-//int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nCmdShow)
+#include <windows.h>
+
+//int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 int main()
 {
-	ZE::Engine::ZenithEngine engine;
-	ZE::RunZenithEngine(engine);
+	ZE::RunEngineScoped ScopedEngine;
+	ScopedEngine.Run();
 }
