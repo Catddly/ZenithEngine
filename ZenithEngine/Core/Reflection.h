@@ -1,7 +1,9 @@
 #pragma once
 
-#include "refl.hpp"
+#include <refl.hpp>
 
+#include <vector>
+#include <string>
 #include <type_traits>
 
 namespace ZE::Core
@@ -112,8 +114,76 @@ namespace ZE::Core
 	}
 
 	template <typename T>
-	constexpr auto GetTypeName()
+	constexpr auto GetTypeName_Direct()
 	{
 		return refl::descriptor::get_display_name_const(refl::type_descriptor<T>{}).str();
 	}
+
+	template <typename T>
+	concept Reflectable = refl::is_reflectable<T>();
+
+	class TypeInfo
+	{
+	public:
+
+		template <typename T>
+		static const TypeInfo& Get()
+		{
+			static const TypeInfo typeinfo(refl::reflect<T>());
+			return typeinfo;
+		}
+
+		const std::string& GetTypeName() const
+		{
+			return m_Name;
+		}
+
+		template <Reflectable Base>
+		bool IsDerivedFrom() const
+		{
+			return std::ranges::find(m_BaseTypes, refl::type_descriptor<Base>().name) != m_BaseTypes.end();
+		}
+
+		template <Reflectable T>
+		bool CanDowncastTo() const
+		{
+			return std::strcmp(refl::type_descriptor<T>().name.c_str(), m_Name.c_str()) == 0;
+		}
+
+	private:
+
+		template <Reflectable T>
+		TypeInfo(refl::type_descriptor<T> td)
+			: m_Name(td.name)
+		{
+			if constexpr (td.declared_bases.size)
+			{
+				using refl::util::for_each;
+				using refl::util::reflect_types;
+
+				for_each(reflect_types(td.declared_bases), [this](auto t)
+				{
+					m_BaseTypes.emplace_back(t.name);
+				});
+			}
+		}
+
+		std::string							m_Name;
+		std::vector<std::string>			m_BaseTypes;
+	};
+
+	class IReflectable
+	{
+	public:
+
+		virtual std::string GetTypeName() const = 0;
+	};
+
+#define ZE_CLASS_REFL() public: \
+	virtual std::string GetTypeName() const { return ZE::Core::TypeInfo::Get<::refl::trait::remove_qualifiers_t<decltype(*this)>>().GetTypeName(); } \
+	template <ZE::Core::Reflectable Base> \
+	bool IsDerivedFrom() { return ZE::Core::TypeInfo::Get<::refl::trait::remove_qualifiers_t<decltype(*this)>>().IsDerivedFrom<Base>(); } \
+	template <ZE::Core::Reflectable T> \
+	bool CanDowncastTo() { return ZE::Core::TypeInfo::Get<::refl::trait::remove_qualifiers_t<decltype(*this)>>().CanDowncastTo<T>(); }
+
 }

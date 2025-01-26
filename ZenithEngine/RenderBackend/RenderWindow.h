@@ -2,6 +2,7 @@
 
 #include "Platform/Window.h"
 #include "RenderDevice.h"
+#include "RenderBackend/RenderResource.h"
 
 #include "vulkan/vulkan_core.h"
 
@@ -11,10 +12,10 @@
 
 namespace ZE::RenderBackend
 {
+	class RenderCommandList;
+
 	class RenderWindow : public Platform::Window, public std::enable_shared_from_this<RenderWindow>
 	{
-		static constexpr uint64_t kInfiniteWaitTime = std::numeric_limits<uint64_t>::max();
-
 	public:
 
 		RenderWindow(RenderDevice& renderDevice, const Settings& settings);
@@ -29,15 +30,19 @@ namespace ZE::RenderBackend
 
 		void Present();
 
+		inline Texture* GetSwapchainRenderTarget() const { return m_SwapchainTextures[m_FrameCounter % RenderDevice::kSwapBufferCount]; }
+
 	private:
 
 		bool CreateOrRecreateSwapchain();
 
 	private:
 
-		RenderDevice&												m_renderDevice;
+		RenderDevice&												m_RenderDevice;
 
 		VkSwapchainKHR												m_Swapchain = nullptr;
+
+		TextureDesc													m_SwapchainBackbufferDesc;
 
 		std::array<VkSemaphore, RenderDevice::kSwapBufferCount>		m_PresentCompleteSemaphoreArray = {};
 		std::array<VkSemaphore, RenderDevice::kSwapBufferCount>		m_RenderCompleteSemaphoreArray = {};
@@ -47,5 +52,7 @@ namespace ZE::RenderBackend
 		std::array<VkFence, RenderDevice::kSwapBufferCount>			m_FenceArray = {};
 
 		uint64_t													m_FrameCounter = 0;
+
+		std::array<Texture*, RenderDevice::kSwapBufferCount>		m_SwapchainTextures = {};
 	};
 }

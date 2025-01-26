@@ -5,12 +5,16 @@
 #include "Platform/Window.h"
 #include "RenderWindow.h"
 #include "VulkanHelper.h"
+#include "RenderCommandList.h"
 
-#include "GLFW/glfw3.h"
+#include <GLFW/glfw3.h>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #undef WIN32_LEAN_AND_MEAN
-#include "vulkan/vulkan_win32.h"
+#include <vulkan/vulkan_win32.h>
+#define VMA_IMPLEMENTATION
+#include <vma/vk_mem_alloc.h>
+#undef VMA_IMPLEMENTATION
 
 #include <vector>
 #include <string.h>
@@ -20,6 +24,8 @@
 
 namespace ZE::RenderBackend
 {
+	constexpr static uint32_t gVulkanVersion = VK_MAKE_VERSION(1, 3, 0);
+
 	constexpr static char const* const gEngineRequiredInstanceLayers[] = {
 		"VK_LAYER_KHRONOS_validation",
 	};
@@ -175,7 +181,7 @@ namespace ZE::RenderBackend
 		appInfo.pNext = nullptr;
 		appInfo.pEngineName = "Zenith Engine";
 		appInfo.pApplicationName = "Unknown";
-		appInfo.apiVersion = VK_API_VERSION_1_3;
+		appInfo.apiVersion = gVulkanVersion;
 		appInfo.applicationVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
 		appInfo.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
 
@@ -260,7 +266,7 @@ namespace ZE::RenderBackend
 			vkGetPhysicalDeviceQueueFamilyProperties(pdDevice, &queueCount, queueProps.data());
 
 			auto& phyDevice = m_PhysicalDevices.emplace_back();
-			phyDevice.m_pHandle = pdDevice;
+			phyDevice.m_Handle = pdDevice;
 			phyDevice.m_Features = pdFeatures;
 			phyDevice.m_Props = pdProps;
 			phyDevice.m_MemoryProps = pdMemoryProps;
@@ -280,7 +286,7 @@ namespace ZE::RenderBackend
 			{
 				VkBool32 supported = false;
 
-				VulkanCheckSucceed(vkGetPhysicalDeviceSurfaceSupportKHR(pd.m_pHandle, queue.m_Index, m_Surface, &supported));
+				VulkanCheckSucceed(vkGetPhysicalDeviceSurfaceSupportKHR(pd.m_Handle, queue.m_Index, m_Surface, &supported));
 
 				// is this physical device support present?
 				if (queue.m_Props.queueCount > 0 &&
@@ -452,7 +458,7 @@ namespace ZE::RenderBackend
 		deviceCI.enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensionArray.size());
 		deviceCI.ppEnabledExtensionNames = requiredDeviceExtensionArray.data();
 
-		VulkanCheckSucceed(vkCreateDevice(physicalDevice.m_pHandle, &deviceCI, nullptr, &m_Device));
+		VulkanCheckSucceed(vkCreateDevice(physicalDevice.m_Handle, &deviceCI, nullptr, &m_Device));
 
 		// Fetch global device queue
 		for (QueueFamily& deviceQueueFamily : deviceQueueFamilies)
@@ -491,7 +497,44 @@ namespace ZE::RenderBackend
 			}
 		}
 
-		// TODO: Create global render command pools
+		return true;
+	}
+
+	bool RenderDevice::CreateGlobalAllocator()
+	{
+		VmaAllocatorCreateInfo allocatorCI = {};
+		allocatorCI.instance = m_Inst;
+		allocatorCI.physicalDevice = m_PhysicalDevices[m_PickedPhysicalDeviceIndex].m_Handle;
+		allocatorCI.device = m_Device;
+		allocatorCI.vulkanApiVersion = gVulkanVersion;
+
+		VmaVulkanFunctions vulkanFunctions = {};
+		vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+		vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+		vulkanFunctions.vkAllocateMemory = vkAllocateMemory;
+		vulkanFunctions.vkBindBufferMemory = vkBindBufferMemory;
+		vulkanFunctions.vkBindImageMemory = vkBindImageMemory;
+		vulkanFunctions.vkCreateBuffer = vkCreateBuffer;
+		vulkanFunctions.vkCreateImage = vkCreateImage;
+		vulkanFunctions.vkDestroyBuffer = vkDestroyBuffer;
+		vulkanFunctions.vkDestroyImage = vkDestroyImage;
+		vulkanFunctions.vkFreeMemory = vkFreeMemory;
+		vulkanFunctions.vkGetBufferMemoryRequirements = vkGetBufferMemoryRequirements;
+		vulkanFunctions.vkGetBufferMemoryRequirements2KHR = vkGetBufferMemoryRequirements2;
+		vulkanFunctions.vkGetImageMemoryRequirements = vkGetImageMemoryRequirements;
+		vulkanFunctions.vkGetImageMemoryRequirements2KHR = vkGetImageMemoryRequirements2;
+		vulkanFunctions.vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties;
+		vulkanFunctions.vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties;
+		vulkanFunctions.vkMapMemory = vkMapMemory;
+		vulkanFunctions.vkUnmapMemory = vkUnmapMemory;
+		vulkanFunctions.vkFlushMappedMemoryRanges = vkFlushMappedMemoryRanges;
+		vulkanFunctions.vkInvalidateMappedMemoryRanges = vkInvalidateMappedMemoryRanges;
+		vulkanFunctions.vkCmdCopyBuffer = vkCmdCopyBuffer;
+
+		allocatorCI.pVulkanFunctions = &vulkanFunctions;
+		allocatorCI.pAllocationCallbacks = nullptr;
+
+		VulkanCheckSucceed(vmaCreateAllocator(&allocatorCI, &m_GlobalAllocator));
 
 		return true;
 	}
@@ -569,12 +612,12 @@ namespace ZE::RenderBackend
 		const auto& physicalDevice = m_PhysicalDevices[m_PickedPhysicalDeviceIndex];
 
 		uint32_t layerCount = 0;
-		VulkanCheckSucceed(vkEnumerateDeviceLayerProperties(physicalDevice.m_pHandle, &layerCount, nullptr));
+		VulkanCheckSucceed(vkEnumerateDeviceLayerProperties(physicalDevice.m_Handle, &layerCount, nullptr));
 
 		ZE_CHECK(layerCount > 0);
 
 		std::vector<VkLayerProperties> layerProps(layerCount);
-		VulkanCheckSucceed(vkEnumerateDeviceLayerProperties(physicalDevice.m_pHandle, &layerCount, layerProps.data()));
+		VulkanCheckSucceed(vkEnumerateDeviceLayerProperties(physicalDevice.m_Handle, &layerCount, layerProps.data()));
 		m_DeviceProps.m_LayerPropArray = layerProps;
 
 		for (auto const& required : requiredLayers)
@@ -605,12 +648,12 @@ namespace ZE::RenderBackend
 		const auto& physicalDevice = m_PhysicalDevices[m_PickedPhysicalDeviceIndex];
 
 		uint32_t extCount = 0;
-		VulkanCheckSucceed(vkEnumerateDeviceExtensionProperties(physicalDevice.m_pHandle, nullptr, &extCount, nullptr));
+		VulkanCheckSucceed(vkEnumerateDeviceExtensionProperties(physicalDevice.m_Handle, nullptr, &extCount, nullptr));
 
 		ZE_CHECK(extCount > 0);
 
 		std::vector<VkExtensionProperties> extProps(extCount);
-		VulkanCheckSucceed(vkEnumerateDeviceExtensionProperties(physicalDevice.m_pHandle, nullptr, &extCount, extProps.data()));
+		VulkanCheckSucceed(vkEnumerateDeviceExtensionProperties(physicalDevice.m_Handle, nullptr, &extCount, extProps.data()));
 		m_DeviceProps.m_ExtensionPropArray = extProps;
 
 		for (auto const& required : requiredExtensions)
@@ -634,6 +677,14 @@ namespace ZE::RenderBackend
 		}
 
 		return true;
+	}
+
+	void RenderDevice::ReleaseSubmittedCommandList(VkFence fence)
+	{
+		if (auto iter = m_SubmittedCommands.find(fence); iter != m_SubmittedCommands.end())
+		{
+			m_SubmittedCommands.erase(iter);
+		}
 	}
 
 	bool RenderDevice::Initialize()
@@ -663,11 +714,18 @@ namespace ZE::RenderBackend
 			return false;
 		}
 
+		if (!CreateGlobalAllocator())
+		{
+			return false;
+		}
+
 		return true;
 	}
 
 	void RenderDevice::Shutdown()
 	{
+		vmaDestroyAllocator(m_GlobalAllocator);
+
 		vkDestroyDevice(m_Device, nullptr);
 
 		if (m_DebugUtilsMessenger)
@@ -683,6 +741,40 @@ namespace ZE::RenderBackend
 		}
 
 		vkDestroyInstance(m_Inst, nullptr);
+	}
+
+	std::unique_ptr<RenderCommandList> RenderDevice::GetImmediateCommandList()
+	{
+		return std::make_unique<RenderCommandList>(*this);
+	}
+
+	RenderDevice::SubmittedCommandHandle RenderDevice::SubmitCommandList(std::unique_ptr<RenderCommandList> cmdList)
+	{
+		VulkanZeroStruct(VkSubmitInfo, submitInfo);
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.pCommandBuffers = &cmdList->m_CommandBuffer;
+		submitInfo.commandBufferCount = 1;
+		
+		VulkanZeroStruct(VkFenceCreateInfo, fenceCI);
+		fenceCI.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		
+		VkFence fence;
+		VulkanCheckSucceed(vkCreateFence(m_Device, &fenceCI, nullptr, &fence));
+
+		VulkanCheckSucceed(vkQueueSubmit(m_GraphicQueue, 1, &submitInfo, fence));
+
+		m_SubmittedCommands.emplace(fence, std::move(cmdList));
+		return SubmittedCommandHandle(*this, fence);
+	}
+
+	RenderBackend::Texture* RenderDevice::GetSwapchainRenderTarget() const
+	{
+		return m_RenderModule.GetMainRenderWindow()->GetSwapchainRenderTarget();
+	}
+
+	void RenderDevice::SubmittedCommandHandle::WaitUntilFinished()
+	{
+		VulkanCheckSucceed(vkWaitForFences(m_RenderDevice.m_Device, 1, &m_Fence, VK_TRUE, kInfiniteWaitTime));
 	}
 
 	//std::shared_ptr<RenderBackend::RenderWindow> RenderDevice::CreateSecondaryRenderWindow()

@@ -9,7 +9,7 @@
 namespace ZE::RenderBackend
 {
 	RenderWindow::RenderWindow(RenderDevice& renderDevice, const Settings& settings)
-		: m_renderDevice(renderDevice), Window(settings)
+		: m_RenderDevice(renderDevice), Window(settings)
 	{
 	}
 
@@ -33,11 +33,11 @@ namespace ZE::RenderBackend
 
 	void RenderWindow::Shutdown()
 	{
-		vkDeviceWaitIdle(m_renderDevice.m_Device);
+		vkDeviceWaitIdle(m_RenderDevice.m_Device);
 
 		for (auto& fence : m_FenceArray)
 		{
-			vkDestroyFence(m_renderDevice.m_Device, fence, nullptr);
+			vkDestroyFence(m_RenderDevice.m_Device, fence, nullptr);
 		}
 
 		for (auto& image : m_ImageArray)
@@ -47,17 +47,17 @@ namespace ZE::RenderBackend
 
 		for (auto& semaphore : m_RenderCompleteSemaphoreArray)
 		{
-			vkDestroySemaphore(m_renderDevice.m_Device, semaphore, nullptr);
+			vkDestroySemaphore(m_RenderDevice.m_Device, semaphore, nullptr);
 			semaphore = nullptr;
 		}
 
 		for (auto& semaphore : m_PresentCompleteSemaphoreArray)
 		{
-			vkDestroySemaphore(m_renderDevice.m_Device, semaphore, nullptr);
+			vkDestroySemaphore(m_RenderDevice.m_Device, semaphore, nullptr);
 			semaphore = nullptr;
 		}
 
-		vkDestroySwapchainKHR(m_renderDevice.m_Device, m_Swapchain, nullptr);
+		vkDestroySwapchainKHR(m_RenderDevice.m_Device, m_Swapchain, nullptr);
 
 		m_Swapchain = nullptr;
 	}
@@ -67,19 +67,19 @@ namespace ZE::RenderBackend
 		const uint64_t frameIndex = m_FrameCounter % RenderDevice::kSwapBufferCount;
 
 		// Wait for until command buffer had finished execution
-		VulkanCheckSucceed(vkWaitForFences(m_renderDevice.m_Device, 1, &m_FenceArray[frameIndex], VK_TRUE, kInfiniteWaitTime));
+		VulkanCheckSucceed(vkWaitForFences(m_RenderDevice.m_Device, 1, &m_FenceArray[frameIndex], VK_TRUE, RenderDevice::kInfiniteWaitTime));
 	
 		//-------------------------------------------------------------------------
 		
 		uint32_t imageIndex;
-		VkResult acquireImageResult = vkAcquireNextImageKHR(m_renderDevice.m_Device, m_Swapchain, kInfiniteWaitTime, m_PresentCompleteSemaphoreArray[frameIndex], m_FenceArray[frameIndex], &imageIndex);
+		VkResult acquireImageResult = vkAcquireNextImageKHR(m_RenderDevice.m_Device, m_Swapchain, RenderDevice::kInfiniteWaitTime, m_PresentCompleteSemaphoreArray[frameIndex], m_FenceArray[frameIndex], &imageIndex);
 
 		if (acquireImageResult != VK_ERROR_OUT_OF_DATE_KHR)
 		{
-			vkDeviceWaitIdle(m_renderDevice.m_Device);
+			vkDeviceWaitIdle(m_RenderDevice.m_Device);
 			CreateOrRecreateSwapchain();
 		}
-		else if (acquireImageResult != VK_SUCCESS || acquireImageResult != VK_SUBOPTIMAL_KHR)
+		else if (acquireImageResult != VK_SUCCESS && acquireImageResult != VK_SUBOPTIMAL_KHR)
 		{
 			ZE_LOG_FATAL("Failed to acquire next frame image.");
 		}
@@ -93,26 +93,23 @@ namespace ZE::RenderBackend
 
 	void RenderWindow::EndRender()
 	{
-
-
 		//m_FrameCounter += 1;
 	}
 
 	void RenderWindow::Present()
 	{
-
 		m_FrameCounter += 1;
 	}
 
 	bool RenderWindow::CreateOrRecreateSwapchain()
 	{
-		const auto& physicalDevice = m_renderDevice.GetPhysicalDevice().m_pHandle;
+		const auto& physicalDevice = m_RenderDevice.GetPhysicalDevice().m_Handle;
 		VkSwapchainKHR oldSwapchain = m_Swapchain;
 
-		vkDeviceWaitIdle(m_renderDevice.m_Device);
+		vkDeviceWaitIdle(m_RenderDevice.m_Device);
 
 		uint32_t surfaceFormatCount = 0;
-		VulkanCheckSucceed(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_renderDevice.m_Surface, &surfaceFormatCount, nullptr));
+		VulkanCheckSucceed(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_RenderDevice.m_Surface, &surfaceFormatCount, nullptr));
 
 		if (surfaceFormatCount == 0)
 		{
@@ -121,7 +118,7 @@ namespace ZE::RenderBackend
 		}
 
 		std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
-		VulkanCheckSucceed(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_renderDevice.m_Surface, &surfaceFormatCount, surfaceFormats.data()));
+		VulkanCheckSucceed(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_RenderDevice.m_Surface, &surfaceFormatCount, surfaceFormats.data()));
 
 		VkSurfaceFormatKHR pickFormat = {};
 		VkFormat desireFormat = VK_FORMAT_B8G8R8A8_UNORM;
@@ -153,7 +150,7 @@ namespace ZE::RenderBackend
 		//-------------------------------------------------------------------------
 
 		VkSurfaceCapabilitiesKHR surfaceCaps = {};
-		VulkanCheckSucceed(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, m_renderDevice.m_Surface, &surfaceCaps));
+		VulkanCheckSucceed(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, m_RenderDevice.m_Surface, &surfaceCaps));
 
 		constexpr uint32_t desiredSwapchainBufferCount = 2;
 
@@ -181,7 +178,7 @@ namespace ZE::RenderBackend
 		//-------------------------------------------------------------------------
 
 		uint32_t supportedPresentModeCount = 0;
-		VulkanCheckSucceed(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, m_renderDevice.m_Surface, &supportedPresentModeCount, nullptr));
+		VulkanCheckSucceed(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, m_RenderDevice.m_Surface, &supportedPresentModeCount, nullptr));
 
 		if (supportedPresentModeCount == 0)
 		{
@@ -190,7 +187,7 @@ namespace ZE::RenderBackend
 		}
 
 		std::vector<VkPresentModeKHR> supportedPresentModes(supportedPresentModeCount);
-		VulkanCheckSucceed(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, m_renderDevice.m_Surface, &supportedPresentModeCount, supportedPresentModes.data()));
+		VulkanCheckSucceed(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, m_RenderDevice.m_Surface, &supportedPresentModeCount, supportedPresentModes.data()));
 
 		// TODO: configurable
 		constexpr bool bEnableVSync = false;
@@ -240,7 +237,7 @@ namespace ZE::RenderBackend
 		swapchainCI.presentMode = pickPresentMode;
 		swapchainCI.clipped = true;
 		swapchainCI.preTransform = transformFlag;
-		swapchainCI.surface = m_renderDevice.m_Surface;
+		swapchainCI.surface = m_RenderDevice.m_Surface;
 		swapchainCI.minImageCount = imageCount;
 
 		swapchainCI.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -252,7 +249,10 @@ namespace ZE::RenderBackend
 
 		swapchainCI.oldSwapchain = oldSwapchain;
 
-		VulkanCheckSucceed(vkCreateSwapchainKHR(m_renderDevice.m_Device, &swapchainCI, nullptr, &m_Swapchain));
+		VulkanCheckSucceed(vkCreateSwapchainKHR(m_RenderDevice.m_Device, &swapchainCI, nullptr, &m_Swapchain));
+
+		m_SwapchainBackbufferDesc.m_Size = { swapchainCI.imageExtent.width, swapchainCI.imageExtent.height };
+		m_SwapchainBackbufferDesc.m_Format = pickFormat.format;
 
 		// delete old swapchain
 		//-------------------------------------------------------------------------
@@ -266,38 +266,50 @@ namespace ZE::RenderBackend
 
 			for (auto& semaphore : m_RenderCompleteSemaphoreArray)
 			{
-				vkDestroySemaphore(m_renderDevice.m_Device, semaphore, nullptr);
+				vkDestroySemaphore(m_RenderDevice.m_Device, semaphore, nullptr);
 				semaphore = nullptr;
 			}
 
 			for (auto& semaphore : m_PresentCompleteSemaphoreArray)
 			{
-				vkDestroySemaphore(m_renderDevice.m_Device, semaphore, nullptr);
+				vkDestroySemaphore(m_RenderDevice.m_Device, semaphore, nullptr);
 				semaphore = nullptr;
 			}
 
 			for (auto& fence : m_FenceArray)
 			{
-				vkDestroyFence(m_renderDevice.m_Device, fence, nullptr);
+				vkDestroyFence(m_RenderDevice.m_Device, fence, nullptr);
 			}
 
-			vkDestroySwapchainKHR(m_renderDevice.m_Device, oldSwapchain, nullptr);
+			vkDestroySwapchainKHR(m_RenderDevice.m_Device, oldSwapchain, nullptr);
 		}
 
 		// fetch swapchain images
 		//-------------------------------------------------------------------------
 
 		uint32_t swapchainImageCount = 0;
-		VulkanCheckSucceed(vkGetSwapchainImagesKHR(m_renderDevice.m_Device, m_Swapchain, &swapchainImageCount, nullptr));
+		VulkanCheckSucceed(vkGetSwapchainImagesKHR(m_RenderDevice.m_Device, m_Swapchain, &swapchainImageCount, nullptr));
 
 		if (swapchainImageCount == 0)
 		{
-			vkDestroySwapchainKHR(m_renderDevice.m_Device, m_Swapchain, nullptr);
+			vkDestroySwapchainKHR(m_RenderDevice.m_Device, m_Swapchain, nullptr);
 			return false;
 		}
 
 		ZE_CHECK(m_ImageArray.size() == (std::size_t)swapchainImageCount);
-		VulkanCheckSucceed(vkGetSwapchainImagesKHR(m_renderDevice.m_Device, m_Swapchain, &swapchainImageCount, m_ImageArray.data()));
+		VulkanCheckSucceed(vkGetSwapchainImagesKHR(m_RenderDevice.m_Device, m_Swapchain, &swapchainImageCount, m_ImageArray.data()));
+
+		for (uint32_t i = 0; i < m_SwapchainTextures.size(); ++i)
+		{
+			auto& pCurrTex = m_SwapchainTextures[i];
+			if (pCurrTex)
+			{
+				delete pCurrTex;
+			}
+
+			pCurrTex = new Texture(m_RenderDevice, m_SwapchainBackbufferDesc);
+			pCurrTex->m_Handle = m_ImageArray[i];
+		}
 
 		// create new semaphores
 		//-------------------------------------------------------------------------
@@ -307,8 +319,8 @@ namespace ZE::RenderBackend
 
 		for (uint32_t i = 0; i < m_RenderCompleteSemaphoreArray.size(); ++i)
 		{
-			VulkanCheckSucceed(vkCreateSemaphore(m_renderDevice.m_Device, &semaphoreCI, nullptr, &m_RenderCompleteSemaphoreArray[i]));
-			VulkanCheckSucceed(vkCreateSemaphore(m_renderDevice.m_Device, &semaphoreCI, nullptr, &m_PresentCompleteSemaphoreArray[i]));
+			VulkanCheckSucceed(vkCreateSemaphore(m_RenderDevice.m_Device, &semaphoreCI, nullptr, &m_RenderCompleteSemaphoreArray[i]));
+			VulkanCheckSucceed(vkCreateSemaphore(m_RenderDevice.m_Device, &semaphoreCI, nullptr, &m_PresentCompleteSemaphoreArray[i]));
 		}
 
 		// create new fences
@@ -320,7 +332,7 @@ namespace ZE::RenderBackend
 
 		for (auto& fence : m_FenceArray)
 		{
-			vkCreateFence(m_renderDevice.m_Device, &fenceCI, nullptr, &fence);
+			vkCreateFence(m_RenderDevice.m_Device, &fenceCI, nullptr, &fence);
 		}
 
 		return true;

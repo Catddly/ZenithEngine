@@ -1,24 +1,26 @@
 #include "RenderGraphResource.h"
 
-namespace ZE::RenderGraph
+namespace ZE::Render
 {
-	GraphResource::GraphResource(const BufferResource& bufferResource)
-		: m_GraphResourceInterface(bufferResource)
+	GraphResource::GraphResource(const GraphResourceTraitResourceType<GraphResourceType::Buffer>& resource)
+		: m_GraphResourceInterface(resource)
+	{
+
+	}
+
+	GraphResource::GraphResource(GraphResourceTraitResourceType<GraphResourceType::Buffer>&& resource)
+		: m_GraphResourceInterface(resource)
 	{
 	}
 
-	GraphResource::GraphResource(BufferResource&& bufferResource)
-		: m_GraphResourceInterface(bufferResource)
+	GraphResource::GraphResource(const GraphResourceTraitResourceType<GraphResourceType::Texture>& resource)
+		: m_GraphResourceInterface(resource)
 	{
+
 	}
 
-	GraphResource::GraphResource(const TextureResource& textureResource)
-		: m_GraphResourceInterface(textureResource)
-	{
-	}
-
-	GraphResource::GraphResource(TextureResource&& textureResource)
-		: m_GraphResourceInterface(textureResource)
+	GraphResource::GraphResource(GraphResourceTraitResourceType<GraphResourceType::Texture>&& resource)
+		: m_GraphResourceInterface(resource)
 	{
 	}
 }

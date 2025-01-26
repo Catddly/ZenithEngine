@@ -9,82 +9,83 @@
 #include <algorithm>
 #include <format>
 
-namespace ZE::RenderGraph
+namespace ZE::Render
 {
-	GraphResource GraphResourceHandle::GetResource() const
-	{
-		ZE_CHECK(m_pGraphNode);
-        ZE_CHECK(m_ResourceId != InvalidGraphResourceId);
-
-        if (IsInputResource())
-        {
-            return m_pGraphNode->m_InputResourceArray[m_ResourceId];
-        }
-
-        return m_pGraphNode->m_OutputResourceArray[m_ResourceId];
-	}
-
-    //-------------------------------------------------------------------------
-
-    GraphResourceHandle GraphNode::Read(const GraphResource& resource)
+    GraphResourceHandle GraphNode::Read(const GraphResource& resource, RenderBackend::RenderResourceState access)
     {
-		GraphResourceHandle handle;
+        ZE_CHECK(m_pRenderGraph);
 
-		uint32_t resourceId = m_InputResourceArray.size();
-		m_InputResourceArray.emplace_back(resource);
-
-		handle.m_ResourceId = static_cast<int32_t>(resourceId);
-		handle.m_ResourceId |= GraphResourceHandle::IsInputNodeMask;
-		handle.m_pGraphNode = this;
+        GraphResourceHandle handle = m_pRenderGraph->AllocateResource(true);
+        handle.m_pOwnerGraphNode = this;
+		m_InputResources.push_back(handle);
 
 		return handle;
     }
 
-    GraphResourceHandle GraphNode::Read(GraphResource&& resource)
+    GraphResourceHandle GraphNode::Read(GraphResource&& resource, RenderBackend::RenderResourceState access)
     {
-        GraphResourceHandle handle;
-     
-        uint32_t resourceId = m_InputResourceArray.size();
-        m_InputResourceArray.emplace_back(resource);
-        
-        handle.m_ResourceId = static_cast<int32_t>(resourceId);
-        handle.m_ResourceId |= GraphResourceHandle::IsInputNodeMask;
-        handle.m_pGraphNode = this;
+		ZE_CHECK(m_pRenderGraph);
+
+		GraphResourceHandle handle = m_pRenderGraph->AllocateResource(true);
+		handle.m_pOwnerGraphNode = this;
+		m_InputResources.push_back(handle);
+
+		return handle;
+    }
+
+    void GraphNode::Read(const GraphResourceHandle& handle, RenderBackend::RenderResourceState access)
+    {
+		ZE_CHECK(m_pRenderGraph);
+        // TODO: move this check to compile-time
+        ZE_CHECK(!handle.IsInputResource());
+
+		m_InputResources.push_back(handle);
+
+		handle.m_pOwnerGraphNode->m_SucceedNodes.emplace_back(this);
+        m_PrecedeNodes.push_back(handle.m_pOwnerGraphNode);
+    }
+
+    GraphResourceHandle GraphNode::Write(GraphResource& resource, RenderBackend::RenderResourceState access)
+    {
+		ZE_CHECK(m_pRenderGraph);
+
+		GraphResourceHandle handle = m_pRenderGraph->AllocateResource(false);
+        m_OutputResources.push_back(handle);
 
         return handle;
     }
 
-    GraphResourceHandle GraphNode::Read(const GraphResourceHandle& handle)
+    GraphNode& GraphNode::BindColor(const GraphResource& resource)
     {
-        ZE_CHECK(handle.m_pGraphNode);
-        // TODO: move this check to compile-time
-        ZE_CHECK(!handle.IsInputResource());
+        ZE_CHECK(m_ColorAttachments.size() <= kMaxColorAttachments);
+        ZE_CHECK(resource.IsTypeOf<GraphResourceType::Texture>());
 
-		GraphResourceHandle newHandle;
+        auto handle = Read(resource, RenderBackend::RenderResourceState::ColorAttachmentRead);
+        m_ColorAttachments.push_back(handle);
 
-		uint32_t resourceId = m_InputResourceArray.size();
-		m_InputResourceArray.emplace_back(handle.GetResource());
-
-        newHandle.m_ResourceId = static_cast<int32_t>(resourceId);
-        newHandle.m_ResourceId |= GraphResourceHandle::IsInputNodeMask;
-        newHandle.m_pGraphNode = this;
-
-		handle.m_pGraphNode->m_Succeeds.emplace_back(this);
-        m_Precedes.push_back(handle.m_pGraphNode);
-
-		return newHandle;
+        return *this;
     }
 
-    GraphResourceHandle GraphNode::Write(GraphResource&& resource)
+    GraphNode& GraphNode::BindDepthStencil(const GraphResource& resource)
     {
-		GraphResourceHandle handle;
+		ZE_CHECK(resource.IsTypeOf<GraphResourceType::Texture>());
 
-		uint32_t resourceId = m_OutputResourceArray.size();
-        m_OutputResourceArray.emplace_back(resource);
+		auto handle = Read(resource, RenderBackend::RenderResourceState::DepthStencilAttachmentRead);
+        m_DepthStencilAttachment = handle;
 
-		handle.m_ResourceId = static_cast<int32_t>(resourceId);
-		handle.m_pGraphNode = this;
-		return handle;
+		return *this;
+    }
+
+    GraphNode& GraphNode::BindVertexShader(const std::shared_ptr<RenderBackend::VertexShader>& pVertexShader)
+    {
+        m_pVertexShader = pVertexShader;
+		return *this;
+    }
+
+    GraphNode& GraphNode::BindPixelShader(const std::shared_ptr<RenderBackend::PixelShader>& pPixelShader)
+    {
+		m_pPixelShader = pPixelShader;
+		return *this;
     }
 
     void GraphNode::Execute(NodeJobType&& Job)
@@ -130,8 +131,8 @@ namespace ZE::RenderGraph
 
     //-------------------------------------------------------------------------
 
-    RenderGraph::RenderGraph()
-		: GraphNode(this, "RootNode")
+    RenderGraph::RenderGraph(RenderBackend::RenderDevice& renderDevice)
+		: m_RenderDevice(renderDevice), GraphNode(this, "RootNode")
     {
     }
 
@@ -140,7 +141,7 @@ namespace ZE::RenderGraph
         m_Allocator.Release();
     }
 
-    GraphNode* RenderGraph::AddNode(const std::string& nodeName)
+    GraphNode& RenderGraph::AddNode(const std::string& nodeName)
     {
         auto iter = m_GraphNodes.find(nodeName);
         ZE_CHECK(iter == m_GraphNodes.end());
@@ -155,10 +156,10 @@ namespace ZE::RenderGraph
         GraphNode* prevTailNode = m_pTailNode;
         m_pTailNode = &result.first->second;
 
-        prevTailNode->m_Succeeds.push_back(m_pTailNode);
-        m_pTailNode->m_Precedes.push_back(prevTailNode);
+        prevTailNode->m_SucceedNodes.push_back(m_pTailNode);
+        m_pTailNode->m_PrecedeNodes.push_back(prevTailNode);
 
-        return m_pTailNode;
+        return *m_pTailNode;
     }
 
     void RenderGraph::Execute()
@@ -167,6 +168,8 @@ namespace ZE::RenderGraph
 
 		for (auto* pNode : m_ExecutionNodes)
 		{
+
+
 			if (pNode->m_Job)
 			{
 				pNode->m_Job();
@@ -212,7 +215,7 @@ namespace ZE::RenderGraph
 		uint32_t nodeCount = 0;
 		for (auto& [_, node] : m_GraphNodes)
 		{
-            localGraphNodes[nodeCount++] = { &node, { node.m_Precedes.begin(), node.m_Precedes.end() } };
+            localGraphNodes[nodeCount++] = { &node, { node.m_PrecedeNodes.begin(), node.m_PrecedeNodes.end() } };
 		}
 
         // setup recursive basis
@@ -269,5 +272,27 @@ namespace ZE::RenderGraph
 
 			m_ExecutionNodes.push_back(currNode);
         }
+    }
+
+    GraphResourceHandle RenderGraph::AllocateResource(bool bIsInput)
+    {
+		GraphResourceHandle handle;
+
+		uint32_t resourceId = m_Resources.size();
+
+        handle.m_ResourceId = static_cast<int32_t>(resourceId);
+        if (bIsInput)
+        {
+            handle.m_ResourceId |= GraphResourceHandle::IsInputNodeMask;
+        }
+
+		return handle;
+    }
+
+    GraphResource RenderGraph::GetResource(const GraphResourceHandle& handle) const
+    {
+        ZE_CHECK(handle.m_ResourceId < m_Resources.size());
+        ZE_CHECK(handle.m_ResourceId != GraphResourceHandle::InvalidGraphResourceId);
+        return m_Resources[handle.m_ResourceId];
     }
 }

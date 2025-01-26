@@ -4,10 +4,11 @@
 
 #include <memory>
 
-namespace ZE::RenderBackend { class IRenderDevice; class RenderWindow; }
+namespace ZE::RenderBackend { class RenderDevice; class RenderWindow; class VertexShader; class PixelShader; }
 
 namespace ZE::Render
 {
+
 	class RenderModule : public Core::IModule
 	{
 	public:
@@ -21,14 +22,24 @@ namespace ZE::Render
 
 		virtual void BuildFrameTasks(tf::Taskflow& taskFlow) override;
 
+	public:
+
 		std::shared_ptr<RenderBackend::RenderWindow> GetMainRenderWindow() const { return m_pMainRenderWindow; }
 
 		//inline std::shared_ptr<RenderBackend::RenderWindow> CreateSecondaryRenderWindow();
 	
 	private:
 
-		RenderBackend::IRenderDevice*					m_pRenderDevice = nullptr;
+		void Draw();
+
+	private:
+
+		RenderBackend::RenderDevice*					m_pRenderDevice = nullptr;
 
 		std::shared_ptr<RenderBackend::RenderWindow>	m_pMainRenderWindow = nullptr;
+
+		// Temp
+		std::shared_ptr<RenderBackend::VertexShader>	m_pTriangleVS = nullptr;
+		std::shared_ptr<RenderBackend::PixelShader>		m_pTrianglePS = nullptr;
 	};
 }

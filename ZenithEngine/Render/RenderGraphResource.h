@@ -1,10 +1,12 @@
 #pragma once
 
-//#include <concepts>
+#include "RenderBackend/RenderResource.h"
+
 #include <variant>
 #include <vector>
+#include <memory>
 
-namespace ZE::RenderGraph
+namespace ZE::Render
 {
 	enum class GraphResourceType
 	{
@@ -12,48 +14,66 @@ namespace ZE::RenderGraph
 		Texture
 	};
 
+	template <typename T>
+	struct GraphUnderlyingResourceTarit {};
+
+	template <>
+	struct GraphUnderlyingResourceTarit<RenderBackend::BufferDesc>
+	{
+		constexpr static GraphResourceType type = GraphResourceType::Buffer;
+	};
+
+	template <>
+	struct GraphUnderlyingResourceTarit<RenderBackend::TextureDesc>
+	{
+		constexpr static GraphResourceType type = GraphResourceType::Texture;
+	};
+
+	template <>
+	struct GraphUnderlyingResourceTarit<RenderBackend::Buffer>
+	{
+		constexpr static GraphResourceType type = GraphResourceType::Buffer;
+	};
+
+	template <>
+	struct GraphUnderlyingResourceTarit<RenderBackend::Texture>
+	{
+		constexpr static GraphResourceType type = GraphResourceType::Texture;
+	};
+
+	template <typename T>
+	concept ValidUnderlyingGraphResource = requires
+	{
+		GraphUnderlyingResourceTarit<T>::type;
+	};
+
 	template <GraphResourceType Type>
-	class GraphResourceTrait
-	{
-	};
-
-	// Dev purpose only
-	struct BufferResource
-	{
-		int						m_Id;
-		double					m_Value;
-
-		static constexpr GraphResourceType ResourceGraphResourceType = GraphResourceType::Buffer;
-	};
-
-	// Dev purpose only
-	struct TextureResource
-	{
-		std::vector<int>		m_SerialNumberArray;
-
-		static constexpr GraphResourceType ResourceGraphResourceType = GraphResourceType::Texture;
-	};
+	class GraphResourceTrait {};
 
 	template <>
 	class GraphResourceTrait<GraphResourceType::Buffer>
 	{
 	public:
-
-		using ResourceType = BufferResource;
+		using ResourceType = RenderBackend::Buffer;
+		using ResourceStorageType = std::shared_ptr<RenderBackend::Buffer>;
+		using ResourceDescType = RenderBackend::BufferDesc;
 	};
 
 	template <>
 	class GraphResourceTrait<GraphResourceType::Texture>
 	{
 	public:
-
-		using ResourceType = TextureResource;
+		using ResourceType = RenderBackend::Texture;
+		using ResourceStorageType = std::shared_ptr<RenderBackend::Texture>;
+		using ResourceDescType = RenderBackend::TextureDesc;
 	};
 
 	template <GraphResourceType T>
 	concept ValidGraphResourceType = requires
 	{
 		typename GraphResourceTrait<T>::ResourceType;
+		typename GraphResourceTrait<T>::ResourceStorageType;
+		typename GraphResourceTrait<T>::ResourceDescType;
 	};
 
 	//-------------------------------------------------------------------------
@@ -65,33 +85,23 @@ namespace ZE::RenderGraph
 
 	public:
 
-		//GraphResourceInterface() = default;
-		GraphResourceInterface(typename GraphResourceTrait<Type>::ResourceType inResource)
+		using GraphResourceTraitResourceStorageType = typename GraphResourceTrait<Type>::ResourceStorageType;
+
+		GraphResourceInterface(const GraphResourceTraitResourceStorageType& inResource)
+			: m_Resource(inResource)
+		{}
+		GraphResourceInterface(GraphResourceTraitResourceStorageType&& inResource)
 			: m_Resource(inResource)
 		{}
 
 	private:
 
-		GraphResourceTrait<Type>::ResourceType						m_Resource;
+		GraphResourceTrait<Type>::ResourceStorageType						m_Resource;
 	};
 
-	//template <>
-	//class GraphResourceInterface<GraphResourceType::Texture>
-	//{
-	//public:
-
-	//private:
-
-	//	TextureResource					m_Resource;
-	//};
-
-	//template <typename T>
-	//concept CanConstructGraphResource = requires
-	//{
-	// 	requires std::same_as<T, BufferResource> || std::same_as<T, TextureResource>;
-	//	requires T::ResourceGraphResourceType;
-	//};
-
+	/* Lightweight resource pointer type points to a underlying resource.
+	*  This type will be frequently copy back and forth. 
+	*/
 	class GraphResource
 	{
 		using GraphResourceInterfaceType = std::variant<
@@ -100,14 +110,20 @@ namespace ZE::RenderGraph
 		>;
 
 		template <GraphResourceType Type>
-		using GraphResourceTraitResourceType = typename GraphResourceTrait<Type>::ResourceType;
+		using GraphResourceTraitResourceType = typename GraphResourceTrait<Type>::ResourceStorageType;
 
 	public:
 
-		GraphResource(const BufferResource& bufferResource);
-		GraphResource(BufferResource&& bufferResource);
-		GraphResource(const TextureResource& textureResource);
-		GraphResource(TextureResource&& textureResource);
+		GraphResource(const GraphResourceTraitResourceType<GraphResourceType::Buffer>& resource);
+		GraphResource(GraphResourceTraitResourceType<GraphResourceType::Buffer>&& resource);
+		GraphResource(const GraphResourceTraitResourceType<GraphResourceType::Texture>& resource);
+		GraphResource(GraphResourceTraitResourceType<GraphResourceType::Texture>&& resource);
+
+		template <GraphResourceType Type>
+		inline bool IsTypeOf() const
+		{
+			return std::holds_alternative<GraphResourceInterface<Type>>(m_GraphResourceInterface);
+		}
 
 	private:
 
