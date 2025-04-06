@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/vec2.hpp>
+
 #include <cstdint>
 
 struct GLFWwindow;
@@ -23,19 +25,22 @@ namespace ZE::Platform
 		virtual ~Window();
 
 		/* Request this window to be close. Window will NOT be immediately destroyed.
-		*  
 		*/
 		void RequestClose();
-		void Render();
+		bool IsRequestingClose() const;
 
-		void* GetNativeHandle() const { return m_pWindow; }
+		void* GetNativeHandle() const { return m_Window; }
 
+		glm::uvec2 GetResolution() const { return {m_Settings.m_Width, m_Settings.m_Height}; }
+		
+		virtual void Resize(uint32_t width, uint32_t height);
+	
 	protected:
 
 		Settings			m_Settings;
 
 	private:
 
-		GLFWwindow*			m_pWindow = nullptr;
+		GLFWwindow*			m_Window = nullptr;
 	};
 }

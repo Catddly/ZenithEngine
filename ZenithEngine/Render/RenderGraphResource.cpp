@@ -2,25 +2,19 @@
 
 namespace ZE::Render
 {
-	GraphResource::GraphResource(const GraphResourceTraitResourceType<GraphResourceType::Buffer>& resource)
+	GraphResource::GraphResource(const GraphResourceTraitResourceStorageType<GraphResourceType::Buffer>& resource)
 		: m_GraphResourceInterface(resource)
-	{
+	{}
 
-	}
+	GraphResource::GraphResource(GraphResourceTraitResourceStorageType<GraphResourceType::Buffer>&& resource)
+		: m_GraphResourceInterface(std::move(resource))
+	{}
 
-	GraphResource::GraphResource(GraphResourceTraitResourceType<GraphResourceType::Buffer>&& resource)
+	GraphResource::GraphResource(const GraphResourceTraitResourceStorageType<GraphResourceType::Texture>& resource)
 		: m_GraphResourceInterface(resource)
-	{
-	}
+	{}
 
-	GraphResource::GraphResource(const GraphResourceTraitResourceType<GraphResourceType::Texture>& resource)
-		: m_GraphResourceInterface(resource)
-	{
-
-	}
-
-	GraphResource::GraphResource(GraphResourceTraitResourceType<GraphResourceType::Texture>&& resource)
-		: m_GraphResourceInterface(resource)
-	{
-	}
+	GraphResource::GraphResource(GraphResourceTraitResourceStorageType<GraphResourceType::Texture>&& resource)
+		: m_GraphResourceInterface(std::move(resource))
+	{}
 }

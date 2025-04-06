@@ -3,8 +3,6 @@
 #include "RenderBackend/RenderResource.h"
 
 #include <variant>
-#include <vector>
-#include <memory>
 
 namespace ZE::Render
 {
@@ -15,28 +13,28 @@ namespace ZE::Render
 	};
 
 	template <typename T>
-	struct GraphUnderlyingResourceTarit {};
+	struct GraphUnderlyingResourceTrait {};
 
 	template <>
-	struct GraphUnderlyingResourceTarit<RenderBackend::BufferDesc>
+	struct GraphUnderlyingResourceTrait<RenderBackend::BufferDesc>
 	{
 		constexpr static GraphResourceType type = GraphResourceType::Buffer;
 	};
 
 	template <>
-	struct GraphUnderlyingResourceTarit<RenderBackend::TextureDesc>
+	struct GraphUnderlyingResourceTrait<RenderBackend::TextureDesc>
 	{
 		constexpr static GraphResourceType type = GraphResourceType::Texture;
 	};
 
 	template <>
-	struct GraphUnderlyingResourceTarit<RenderBackend::Buffer>
+	struct GraphUnderlyingResourceTrait<RenderBackend::Buffer>
 	{
 		constexpr static GraphResourceType type = GraphResourceType::Buffer;
 	};
 
 	template <>
-	struct GraphUnderlyingResourceTarit<RenderBackend::Texture>
+	struct GraphUnderlyingResourceTrait<RenderBackend::Texture>
 	{
 		constexpr static GraphResourceType type = GraphResourceType::Texture;
 	};
@@ -44,7 +42,7 @@ namespace ZE::Render
 	template <typename T>
 	concept ValidUnderlyingGraphResource = requires
 	{
-		GraphUnderlyingResourceTarit<T>::type;
+		GraphUnderlyingResourceTrait<T>::type;
 	};
 
 	template <GraphResourceType Type>
@@ -55,7 +53,7 @@ namespace ZE::Render
 	{
 	public:
 		using ResourceType = RenderBackend::Buffer;
-		using ResourceStorageType = std::shared_ptr<RenderBackend::Buffer>;
+		using ResourceStorageType = RenderBackend::DeferReleaseLifetimeResource<RenderBackend::Buffer>;
 		using ResourceDescType = RenderBackend::BufferDesc;
 	};
 
@@ -64,7 +62,7 @@ namespace ZE::Render
 	{
 	public:
 		using ResourceType = RenderBackend::Texture;
-		using ResourceStorageType = std::shared_ptr<RenderBackend::Texture>;
+		using ResourceStorageType = RenderBackend::DeferReleaseLifetimeResource<RenderBackend::Texture>;
 		using ResourceDescType = RenderBackend::TextureDesc;
 	};
 
@@ -91,38 +89,66 @@ namespace ZE::Render
 			: m_Resource(inResource)
 		{}
 		GraphResourceInterface(GraphResourceTraitResourceStorageType&& inResource)
-			: m_Resource(inResource)
+			: m_Resource(std::move(inResource))
 		{}
 
+		inline const typename GraphResourceTrait<Type>::ResourceDescType& GetDesc() const
+		{
+			return m_Resource->GetDesc();
+		}
+
+		inline const typename GraphResourceTrait<Type>::ResourceStorageType& GetResourceStorage() const
+		{
+			return m_Resource;
+		}
+		
 	private:
 
-		GraphResourceTrait<Type>::ResourceStorageType						m_Resource;
+		typename GraphResourceTrait<Type>::ResourceStorageType				m_Resource;
 	};
 
-	/* Lightweight resource pointer type points to a underlying resource.
+	/* Lightweight resource pointer type points to an underlying resource.
 	*  This type will be frequently copy back and forth. 
 	*/
 	class GraphResource
 	{
+		friend class GraphNode;
+		friend class RenderGraph;
+		
 		using GraphResourceInterfaceType = std::variant<
 			GraphResourceInterface<GraphResourceType::Buffer>,
 			GraphResourceInterface<GraphResourceType::Texture>
 		>;
 
 		template <GraphResourceType Type>
-		using GraphResourceTraitResourceType = typename GraphResourceTrait<Type>::ResourceStorageType;
-
-	public:
-
-		GraphResource(const GraphResourceTraitResourceType<GraphResourceType::Buffer>& resource);
-		GraphResource(GraphResourceTraitResourceType<GraphResourceType::Buffer>&& resource);
-		GraphResource(const GraphResourceTraitResourceType<GraphResourceType::Texture>& resource);
-		GraphResource(GraphResourceTraitResourceType<GraphResourceType::Texture>&& resource);
+		using GraphResourceTraitResourceStorageType = typename GraphResourceTrait<Type>::ResourceStorageType;
 
 		template <GraphResourceType Type>
-		inline bool IsTypeOf() const
+		using GraphResourceTraitResourceDescType = typename GraphResourceTrait<Type>::ResourceDescType;
+
+	public:
+		
+		GraphResource(const GraphResourceTraitResourceStorageType<GraphResourceType::Buffer>& resource);
+		GraphResource(GraphResourceTraitResourceStorageType<GraphResourceType::Buffer>&& resource);
+		GraphResource(const GraphResourceTraitResourceStorageType<GraphResourceType::Texture>& resource);
+		GraphResource(GraphResourceTraitResourceStorageType<GraphResourceType::Texture>&& resource);
+
+		template <GraphResourceType Type>
+		constexpr bool IsTypeOf() const
 		{
 			return std::holds_alternative<GraphResourceInterface<Type>>(m_GraphResourceInterface);
+		}
+
+		template <GraphResourceType Type>
+		const GraphResourceTraitResourceDescType<Type>& GetDesc() const
+		{
+			return std::get<GraphResourceInterface<Type>>(m_GraphResourceInterface).GetDesc();
+		}
+
+		template <GraphResourceType Type>
+		const GraphResourceTraitResourceStorageType<Type>& GetResourceStorage() const
+		{
+			return std::get<GraphResourceInterface<Type>>(m_GraphResourceInterface).GetResourceStorage();
 		}
 
 	private:

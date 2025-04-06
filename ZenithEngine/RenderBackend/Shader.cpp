@@ -1,6 +1,7 @@
 #include "Shader.h"
 
 #include "Core/Assertion.h"
+#include "Core/Hash.h"
 #include "RenderDevice.h"
 #include "VulkanHelper.h"
 
@@ -9,20 +10,39 @@
 
 namespace ZE::RenderBackend
 {
-	Shader::Shader(RenderDevice& renderDevice, const ByteCode& byteCode)
-		: m_RenderDevice(renderDevice)
+	namespace
 	{
+		const char* ToStr(EShaderBindingResourceType type)
+		{
+			switch ( type )
+			{
+				case EShaderBindingResourceType::Unknown: return "Unknown";
+				case EShaderBindingResourceType::UniformBuffer: return "UniformBuffer";
+				case EShaderBindingResourceType::StorageBuffer: return "StorageBuffer";
+				case EShaderBindingResourceType::Texture2D: return "Texture2D";
+			}
+			return "";
+		}
+	}
+	
+	Shader::Shader(RenderDevice& renderDevice, const ByteCode& byteCode)
+	{
+		SetRenderDevice(&renderDevice);
+		
 		VulkanZeroStruct(VkShaderModuleCreateInfo, shaderCI);
 		shaderCI.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 		shaderCI.codeSize = byteCode.size();
 		shaderCI.pCode = reinterpret_cast<const uint32_t*>(byteCode.data());
+
+		m_Hash = std::hash<ByteCode>{}(byteCode);
 		
-		VulkanCheckSucceed(vkCreateShaderModule(m_RenderDevice.m_Device, &shaderCI, nullptr, &m_Shader));
+		VulkanCheckSucceed(vkCreateShaderModule(GetRenderDevice().GetNativeDevice(), &shaderCI, nullptr, &m_Shader));
 	}
 
 	Shader::Shader(RenderDevice& renderDevice, const std::string& filepath)
-		: m_RenderDevice(renderDevice)
 	{
+		SetRenderDevice(&renderDevice);
+		
 		std::ifstream inStream(filepath, std::ios::in | std::ios::binary);
 
 		if (inStream.is_open())
@@ -34,7 +54,9 @@ namespace ZE::RenderBackend
 			shaderCI.codeSize = binary.size();
 			shaderCI.pCode = reinterpret_cast<const uint32_t*>(binary.data());
 
-			VulkanCheckSucceed(vkCreateShaderModule(m_RenderDevice.m_Device, &shaderCI, nullptr, &m_Shader));
+			m_Hash = std::hash<std::string>{}(binary);
+			
+			VulkanCheckSucceed(vkCreateShaderModule(GetRenderDevice().GetNativeDevice(), &shaderCI, nullptr, &m_Shader));
 		}
 
 		inStream.close();
@@ -42,34 +64,52 @@ namespace ZE::RenderBackend
 
 	Shader::~Shader()
 	{
-		vkDestroyShaderModule(m_RenderDevice.m_Device, m_Shader, nullptr);
+		if (m_Shader)
+		{
+			vkDestroyShaderModule(GetRenderDevice().GetNativeDevice(), m_Shader, nullptr);
+			m_Shader = nullptr;
+		}
 	}
 
 	void Shader::ReleaseGPUShaderObject()
 	{
 		if (m_Shader)
 		{
-			vkDestroyShaderModule(m_RenderDevice.m_Device, m_Shader, nullptr);
+			vkDestroyShaderModule(GetRenderDevice().GetNativeDevice(), m_Shader, nullptr);
 			m_Shader = nullptr;
 		}
 	}
 
-	Shader::LayoutBuilder& Shader::LayoutBuilder::PushResource(uint32_t set, EBindingResourceType type)
+	Shader::LayoutBuilder::LayoutBuilder(Shader* pShader)
+		: m_pShader(pShader)
+	{}
+
+	Shader::LayoutBuilder& Shader::LayoutBuilder::BindResource(uint32_t set, const std::string& name, EShaderBindingResourceType type)
 	{
-		if (m_ResourceSetArray.size() < set + 1)
+		if (m_ResourceSetBindings.size() < set + 1)
 		{
-			m_ResourceSetArray.resize(set + 1);
+			m_ResourceSetBindings.resize(set + 1);
+		}
+		
+		if (auto iter = m_ResourceSetBindings[set].find(name); iter != m_ResourceSetBindings[set].end())
+		{
+			ZE_LOG_WARNING("Rebind resource {} in ... set ... from {} to {}", name.c_str(), ToStr(iter->second), ToStr(type));
+			iter->second = type;
+			return *this;
 		}
 
-		m_ResourceSetArray[set].emplace_back(type);
-
+		m_ResourceSetBindings[set].emplace(name, type);
 		return *this;
 	}
 
-	Shader::ShaderLayout Shader::LayoutBuilder::Build()
+	void Shader::LayoutBuilder::Build()
 	{
-		return ShaderLayout{ .m_ResourceSetArray = std::move(m_ResourceSetArray) };
+		m_pShader->m_Layout.m_ResourceSetArray = std::move(m_ResourceSetBindings);
 	}
+
+	VertexShader::InputLayoutBuilder::InputLayoutBuilder(VertexShader* pVertexShader)
+		: m_pVertexShader(pVertexShader)
+	{}
 
 	VertexShader::InputLayoutBuilder& VertexShader::InputLayoutBuilder::AddLayout(VkFormat format, uint32_t size, uint32_t offset)
 	{
@@ -78,10 +118,19 @@ namespace ZE::RenderBackend
 
 		return *this;
 	}
-
-	VertexShader::InputLayout VertexShader::InputLayoutBuilder::Build()
+	
+	void VertexShader::InputLayoutBuilder::Build()
 	{
-		return InputLayout{ .m_InputAttribArray = std::move(m_InputAttribArray), .m_InputSizeInByte = m_TotalByteSize };
+		m_pVertexShader->m_InputLayout.m_InputAttribArray = std::move(m_InputAttribArray);
+		m_pVertexShader->m_InputLayout.m_InputSizeInByte = m_TotalByteSize;
+
+		// for (const auto& inputAttrib : m_pVertexShader->m_InputLayout.m_InputAttribArray)
+		// {
+		// 	m_pVertexShader->m_Hash = Core::Hash(m_pVertexShader->m_Hash, inputAttrib.location);
+		// 	m_pVertexShader->m_Hash = Core::Hash(m_pVertexShader->m_Hash, inputAttrib.binding);
+		// 	m_pVertexShader->m_Hash = Core::Hash(m_pVertexShader->m_Hash, inputAttrib.format);
+		// 	m_pVertexShader->m_Hash = Core::Hash(m_pVertexShader->m_Hash, inputAttrib.offset);
+		// }
 	}
 
 	VertexShader::VertexShader(RenderDevice& renderDevice, const ByteCode& byteCode)

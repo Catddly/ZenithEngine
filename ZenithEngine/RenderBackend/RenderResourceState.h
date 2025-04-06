@@ -1,7 +1,10 @@
 #pragma once
 
+#include <vulkan/vulkan_core.h>
+
 #include <cstdint>
 #include <limits>
+#include <span>
 
 namespace ZE::RenderBackend
 {
@@ -14,7 +17,7 @@ namespace ZE::RenderBackend
 	//	This idea comes from vk-sync-rs (by Graham Wihlidal) and be slightly modified.
 	//-------------------------------------------------------------------------
 
-	enum class RenderResourceState : uint16_t
+	enum class ERenderResourceState : uint8_t
 	{
 		/// Undefined resource state, primarily use for initialization.
 		Undefined = 0,
@@ -148,17 +151,17 @@ namespace ZE::RenderBackend
 		AccelerationStructureBufferWrite,
 	};
 
-	bool IsCommonReadOnlyAccess(const RenderResourceState& access);
-	bool IsCommonWriteAccess(const RenderResourceState& access);
-	bool IsRasterReadOnlyAccess(const RenderResourceState& access);
-	bool IsRasterWriteAccess(const RenderResourceState& access);
+	bool IsCommonReadOnlyAccess(const ERenderResourceState& access);
+	bool IsCommonWriteAccess(const ERenderResourceState& access);
+	bool IsRasterReadOnlyAccess(const ERenderResourceState& access);
+	bool IsRasterWriteAccess(const ERenderResourceState& access);
 	
 	class RenderResourceAccessState
 	{
 	public:
 
 		RenderResourceAccessState() = default;
-		RenderResourceAccessState(RenderResourceState targetBarrier, bool bSkipSyncIfContinuous = false)
+		RenderResourceAccessState(ERenderResourceState targetBarrier, bool bSkipSyncIfContinuous = false)
 			: m_SkipSyncIfContinuous(bSkipSyncIfContinuous), m_TargetBarrier(targetBarrier)
 		{
 		}
@@ -173,12 +176,12 @@ namespace ZE::RenderBackend
 			return m_SkipSyncIfContinuous;
 		}
 
-		inline RenderResourceState GetCurrentAccess() const
+		inline ERenderResourceState GetCurrentAccess() const
 		{
 			return m_TargetBarrier;
 		}
 
-		inline void TransiteTo(RenderResourceState state)
+		inline void TransitionTo(ERenderResourceState state)
 		{
 			m_TargetBarrier = state;
 		}
@@ -187,28 +190,26 @@ namespace ZE::RenderBackend
 
 		// Skip resource synchronization between different nodes.
 		bool									m_SkipSyncIfContinuous = false;
-		RenderResourceState						m_TargetBarrier = RenderResourceState::Undefined;
+		ERenderResourceState						m_TargetBarrier = ERenderResourceState::Undefined;
 	};
 
-	struct GlobalBarrier
+	struct GlobalMemoryBarrier
 	{
-		uint32_t								m_PreviousAccessesCount = 0;
+		uint32_t								m_PrevAccessesCount = 0;
 		uint32_t								m_NextAccessesCount = 0;
-		const RenderResourceState*				m_pPreviousAccesses = nullptr;
-		const RenderResourceState*				m_pNextAccesses = nullptr;
+		const ERenderResourceState*				m_PreviousAccesses = nullptr;
+		const ERenderResourceState*				m_pNextAccesses = nullptr;
 	};
 
 	class Buffer;
 
 	struct BufferBarrier
 	{
-		uint32_t								m_PreviousAccessesCount = 0;
-		uint32_t								m_NextAccessesCount = 0;
-		const RenderResourceState*				m_pPreviousAccesses = nullptr;
-		const RenderResourceState*				m_pNextAccesses = nullptr;
+		std::span<const ERenderResourceState>	m_PrevAccesses;
+		std::span<const ERenderResourceState>	m_NextAccesses;
 		uint32_t								m_SrcQueueFamilyIndex = std::numeric_limits<uint32_t>::max();
 		uint32_t								m_DstQueueFamilyIndex = std::numeric_limits<uint32_t>::max();
-		Buffer*							        m_pBuffer = nullptr;
+		VkBuffer							    m_Buffer = nullptr;
 		uint32_t								m_Offset = 0;
 		uint32_t								m_Size = 0;
 	};
@@ -232,25 +233,23 @@ namespace ZE::RenderBackend
 		Stencil,
 		Metadata,
 	};
-
-	//TextureAspectFlags PixelFormatToAspectFlags(EPixelFormat format);
-
+	
 	struct TextureSubresourceRange
 	{
-		TextureAspectFlags						m_AspectFlags = TextureAspectFlags::Color;
-		uint32_t							    m_BaseMipLevel = 0;
-		uint32_t							    m_LevelCount = 1;
-		uint32_t							    m_BaseArrayLayer = 0;
-		uint32_t							    m_LayerCount = 1;
+		VkImageAspectFlags						m_AspectFlags = VK_IMAGE_ASPECT_NONE;
+		uint32_t							    m_BaseMipLevel = 0u;
+		uint32_t							    m_LevelCount = 1u;
+		uint32_t							    m_BaseArrayLayer = 0u;
+		uint32_t							    m_LayerCount = 1u;
 
-		static TextureSubresourceRange AllSubresources(TextureAspectFlags aspectFlags)
+		static TextureSubresourceRange AllSubresources(VkImageAspectFlags aspectFlags)
 		{
 			TextureSubresourceRange range;
 			range.m_AspectFlags = aspectFlags;
-			range.m_BaseMipLevel = 0;
-			range.m_BaseArrayLayer = 0;
-			range.m_LevelCount = ~(0u);
-			range.m_LayerCount = ~(0u);
+			range.m_BaseMipLevel = 0u;
+			range.m_BaseArrayLayer = 0u;
+			range.m_LevelCount = ~0u;
+			range.m_LayerCount = ~0u;
 			return range;
 		}
 	};
@@ -270,16 +269,14 @@ namespace ZE::RenderBackend
 
 	struct TextureBarrier
 	{
-		bool									m_bDiscardContents = true;
-		uint32_t								m_PreviousAccessesCount = 0;
-		uint32_t								m_NextAccessesCount = 0;
-		const RenderResourceState*				m_pPreviousAccesses = nullptr;
-		const RenderResourceState*				m_pNextAccesses = nullptr;
-		TextureMemoryLayout     				m_PreviousLayout = TextureMemoryLayout::Optimal;
+		bool									m_DiscardContents = true;
+		std::span<const ERenderResourceState>	m_PrevAccesses;
+		std::span<const ERenderResourceState>	m_NextAccesses;
+		TextureMemoryLayout     				m_PrevLayout = TextureMemoryLayout::Optimal;
 		TextureMemoryLayout     				m_NextLayout = TextureMemoryLayout::Optimal;
 		uint32_t								m_SrcQueueFamilyIndex = std::numeric_limits<uint32_t>::max();
 		uint32_t								m_DstQueueFamilyIndex = std::numeric_limits<uint32_t>::max();
-		Texture*								m_pTexture = nullptr;
+		VkImage									m_Texture = nullptr;
 		TextureSubresourceRange					m_SubresourceRange;
 	};
 }

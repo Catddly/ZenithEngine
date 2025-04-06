@@ -6,18 +6,20 @@
 #include "RenderWindow.h"
 #include "VulkanHelper.h"
 #include "RenderCommandList.h"
+#include "DescriptorCache.h"
 
 #include <GLFW/glfw3.h>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #undef WIN32_LEAN_AND_MEAN
 #include <vulkan/vulkan_win32.h>
+// Uncomment to debug memory leaking
+// #define VMA_DEBUG_LOG(format, ...) do { char buffer[256]; std::sprintf(buffer, format, __VA_ARGS__); ZE_LOG_INFO("{}", buffer); } while(false);
 #define VMA_IMPLEMENTATION
 #include <vma/vk_mem_alloc.h>
 #undef VMA_IMPLEMENTATION
 
 #include <vector>
-#include <string.h>
 #include <ranges>
 #include <algorithm>
 #include <limits>
@@ -49,6 +51,8 @@ namespace ZE::RenderBackend
 		//VK_KHR_MAINTENANCE3_EXTENSION_NAME,
 		//VK_KHR_MAINTENANCE_4_EXTENSION_NAME, // allow descriptor set has NOT consumed slot
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME, // swapchain
+		
+		VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, // allow postponing creation of renderpass
 
 		//VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME,
 
@@ -77,7 +81,7 @@ namespace ZE::RenderBackend
 		case VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT: messageTypeStr = "[DeviceAddessBinding]"; break;
 		default: messageTypeStr = "[Unknown]"; break;
 		}
-
+		
 		switch (messageSeverity)
 		{
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
@@ -132,14 +136,14 @@ namespace ZE::RenderBackend
 		std::vector<const char*> requiredInstanceLayerArray;
 		std::vector<const char*> requiredInstanceExtensionArray;
 
-		for (uint32_t i = 0; i < sizeof(gEngineRequiredInstanceLayers) / sizeof(const char*); ++i)
+		for (const char* layer : gEngineRequiredInstanceLayers)
 		{
-			requiredInstanceLayerArray.push_back(gEngineRequiredInstanceLayers[i]);
+			requiredInstanceLayerArray.push_back(layer);
 		}
 
-		for (uint32_t i = 0; i < sizeof(gEngineRequiredInstanceExtensions) / sizeof(const char*); ++i)
+		for (const char* extension : gEngineRequiredInstanceExtensions)
 		{
-			requiredInstanceExtensionArray.push_back(gEngineRequiredInstanceExtensions[i]);
+			requiredInstanceExtensionArray.push_back(extension);
 		}
 
 		// TODO: verify glfw
@@ -224,7 +228,7 @@ namespace ZE::RenderBackend
 	{
 		// TODO: verify glfw
 
-		auto pMainWindow = std::static_pointer_cast<Platform::Window>(m_RenderModule.GetMainRenderWindow());
+		auto pMainWindow = std::static_pointer_cast<Platform::Window>(m_RenderModule.get().GetMainRenderWindow());
 		GLFWwindow* pGLFWWindow = reinterpret_cast<GLFWwindow*>(pMainWindow->GetNativeHandle());
 
 		VulkanCheckSucceed(glfwCreateWindowSurface(m_Inst, pGLFWWindow, nullptr, &m_Surface));
@@ -366,18 +370,25 @@ namespace ZE::RenderBackend
 		std::vector<const char*> requiredDeviceLayerArray;
 		std::vector<const char*> requiredDeviceExtensionArray;
 
-		for (uint32_t i = 0; i < sizeof(gEngineRequiredDeviceLayers) / sizeof(const char*); ++i)
+		for (const char* layer : gEngineRequiredDeviceLayers)
 		{
-			requiredDeviceLayerArray.push_back(gEngineRequiredDeviceLayers[i]);
+			requiredDeviceLayerArray.push_back(layer);
 		}
 
-		for (uint32_t i = 0; i < sizeof(gEngineRequiredDeviceExtensions) / sizeof(const char*); ++i)
+		for (const char* extension : gEngineRequiredDeviceExtensions)
 		{
-			requiredDeviceExtensionArray.push_back(gEngineRequiredDeviceExtensions[i]);
+			requiredDeviceExtensionArray.push_back(extension);
 		}
 
-		CollectDeviceLayerProps(requiredDeviceLayerArray);
-		CollectDeviceExtensionProps(requiredDeviceExtensionArray);
+		if (!CollectDeviceLayerProps(requiredDeviceLayerArray))
+		{
+			return false;
+		}
+		
+		if (!CollectDeviceExtensionProps(requiredDeviceExtensionArray))
+		{
+			return false;
+		}
 
 		// Device queue creation info population
 		std::vector<VkDeviceQueueCreateInfo> deviceQueueCIs = {};
@@ -430,17 +441,19 @@ namespace ZE::RenderBackend
 		//auto buffer_address = VkPhysicalDeviceBufferDeviceAddressFeaturesEXT{};
 		//buffer_address.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT;
 
-		// TODO: pNext chain
-		//VkPhysicalDeviceFeatures2 physicalDeviceFeatures2 = {};
-		//physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		auto dynamicRenderingFeature = VkPhysicalDeviceDynamicRenderingFeaturesKHR{};
+		dynamicRenderingFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
+		
+		VkPhysicalDeviceFeatures2 physicalDeviceFeatures2 = {};
+		physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 
-		//physicalDeviceFeatures2.pNext = &descriptor_indexing;
-		//descriptor_indexing.pNext = &imageless_framebuffer;
-		//imageless_framebuffer.pNext = &buffer_address;
+		physicalDeviceFeatures2.pNext = &dynamicRenderingFeature;
+		// descriptor_indexing.pNext = &imageless_framebuffer;
+		// imageless_framebuffer.pNext = &buffer_address;
 
-		//vkGetPhysicalDeviceFeatures2(physicalDevice.m_pHandle, &physicalDeviceFeatures2);
+		vkGetPhysicalDeviceFeatures2(GetPhysicalDevice().m_Handle, &physicalDeviceFeatures2);
 
-		//ZE_CHECK(imageless_framebuffer.imagelessFramebuffer);
+		ZE_CHECK(dynamicRenderingFeature.dynamicRendering);
 		//ZE_CHECK(descriptor_indexing.descriptorBindingPartiallyBound);
 		//ZE_CHECK(buffer_address.bufferDeviceAddress);
 
@@ -448,7 +461,7 @@ namespace ZE::RenderBackend
 		VkDeviceCreateInfo deviceCI = {};
 		deviceCI.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		deviceCI.flags = VkFlags(0);
-		//deviceCI.pNext = &physicalDeviceFeatures2;
+		deviceCI.pNext = &physicalDeviceFeatures2;
 
 		deviceCI.queueCreateInfoCount = static_cast<uint32_t>(deviceQueueCIs.size());
 		deviceCI.pQueueCreateInfos = deviceQueueCIs.data();
@@ -500,7 +513,7 @@ namespace ZE::RenderBackend
 		return true;
 	}
 
-	bool RenderDevice::CreateGlobalAllocator()
+	bool RenderDevice::CreateGlobalMemoryAllocator()
 	{
 		VmaAllocatorCreateInfo allocatorCI = {};
 		allocatorCI.instance = m_Inst;
@@ -679,13 +692,13 @@ namespace ZE::RenderBackend
 		return true;
 	}
 
-	void RenderDevice::ReleaseSubmittedCommandList(VkFence fence)
-	{
-		if (auto iter = m_SubmittedCommands.find(fence); iter != m_SubmittedCommands.end())
-		{
-			m_SubmittedCommands.erase(iter);
-		}
-	}
+	// void RenderDevice::ReleaseSubmittedCommandList(VkFence fence)
+	// {
+	// 	if (auto iter = m_SubmittedCommands.find(fence); iter != m_SubmittedCommands.end())
+	// 	{
+	// 		m_SubmittedCommands.erase(iter);
+	// 	}
+	// }
 
 	bool RenderDevice::Initialize()
 	{
@@ -694,12 +707,12 @@ namespace ZE::RenderBackend
 			return false;
 		}
 
-		if (!CreateWin32Surface())
+		if (!CreateDebugLayer())
 		{
 			return false;
 		}
-
-		if (!CreateDebugLayer())
+		
+		if (!CreateWin32Surface())
 		{
 			return false;
 		}
@@ -714,23 +727,58 @@ namespace ZE::RenderBackend
 			return false;
 		}
 
-		if (!CreateGlobalAllocator())
+		if (!CreateGlobalMemoryAllocator())
 		{
 			return false;
 		}
 
+		for (auto& cmdList : m_FrameCommandLists)
+		{
+			cmdList = new RenderCommandList(*this);
+		}
+
+		for (auto& cache : m_FrameDescriptorCaches)
+		{
+			cache = new DescriptorCache(*this);
+		}
+		
 		return true;
 	}
 
 	void RenderDevice::Shutdown()
 	{
-		vmaDestroyAllocator(m_GlobalAllocator);
+		vkDeviceWaitIdle(m_Device);
+		
+		for (auto& cache : m_FrameDescriptorCaches)
+		{
+			delete cache;
+			cache = nullptr;
+		}
+		
+		for (auto& pCmdList : m_FrameCommandLists)
+		{
+			delete pCmdList;
+			pCmdList = nullptr;
+		}
 
-		vkDestroyDevice(m_Device, nullptr);
+		for (auto& queue : m_FrameDeferReleaseQueues)
+		{
+			queue.ReleaseAllImmediately();
+		}
+		
+		if (m_GlobalAllocator)
+		{
+			vmaDestroyAllocator(m_GlobalAllocator);
+		}
+
+		if (m_Device)
+		{
+			vkDestroyDevice(m_Device, nullptr);
+		}
 
 		if (m_DebugUtilsMessenger)
 		{
-			auto vkDestroyDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_Inst, "vkDestroyDebugUtilsMessengerEXT"));
+			auto* vkDestroyDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_Inst, "vkDestroyDebugUtilsMessengerEXT"));
 			ZE_CHECK(vkDestroyDebugUtilsMessengerEXT);
 			vkDestroyDebugUtilsMessengerEXT(m_Inst, m_DebugUtilsMessenger, nullptr);
 		}
@@ -740,19 +788,22 @@ namespace ZE::RenderBackend
 			vkDestroySurfaceKHR(m_Inst, m_Surface, nullptr);
 		}
 
-		vkDestroyInstance(m_Inst, nullptr);
+		if (m_Inst)
+		{
+			vkDestroyInstance(m_Inst, nullptr);
+		}
 	}
 
-	std::unique_ptr<RenderCommandList> RenderDevice::GetImmediateCommandList()
+	std::shared_ptr<RenderCommandList> RenderDevice::GetImmediateCommandList()
 	{
-		return std::make_unique<RenderCommandList>(*this);
+		return std::make_shared<RenderCommandList>(*this);
 	}
 
-	RenderDevice::SubmittedCommandHandle RenderDevice::SubmitCommandList(std::unique_ptr<RenderCommandList> cmdList)
+	void RenderDevice::SubmitCommandListAndWaitUntilFinish(RenderCommandList* pCmdList) const
 	{
 		VulkanZeroStruct(VkSubmitInfo, submitInfo);
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submitInfo.pCommandBuffers = &cmdList->m_CommandBuffer;
+		submitInfo.pCommandBuffers = &pCmdList->m_CommandBuffer;
 		submitInfo.commandBufferCount = 1;
 		
 		VulkanZeroStruct(VkFenceCreateInfo, fenceCI);
@@ -762,25 +813,67 @@ namespace ZE::RenderBackend
 		VulkanCheckSucceed(vkCreateFence(m_Device, &fenceCI, nullptr, &fence));
 
 		VulkanCheckSucceed(vkQueueSubmit(m_GraphicQueue, 1, &submitInfo, fence));
-
-		m_SubmittedCommands.emplace(fence, std::move(cmdList));
-		return SubmittedCommandHandle(*this, fence);
+		VulkanCheckSucceed(vkWaitForFences(m_Device, 1, &fence, VK_TRUE, kInfiniteWaitTime));
+		vkDestroyFence(m_Device, fence, nullptr);
 	}
-
-	RenderBackend::Texture* RenderDevice::GetSwapchainRenderTarget() const
+	
+	void RenderDevice::SubmitCommandList(RenderCommandList* pCmdList, const RenderWindow& renderWindow) const
 	{
-		return m_RenderModule.GetMainRenderWindow()->GetSwapchainRenderTarget();
+		constexpr VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+		VulkanZeroStruct(VkSubmitInfo, submitInfo);
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.pCommandBuffers = &pCmdList->m_CommandBuffer;
+		submitInfo.commandBufferCount = 1u;
+		submitInfo.pWaitSemaphores = &renderWindow.m_PresentCompleteSemaphores[m_FrameIndex];
+		submitInfo.waitSemaphoreCount = 1u;
+		submitInfo.pSignalSemaphores = &renderWindow.m_RenderCompleteSemaphores[m_FrameIndex];
+		submitInfo.signalSemaphoreCount = 1u;
+		submitInfo.pWaitDstStageMask = &waitStageMask;
+		
+		VulkanCheckSucceed(vkQueueSubmit(m_GraphicQueue, 1, &submitInfo, renderWindow.m_Fences[m_FrameIndex]));
 	}
 
-	void RenderDevice::SubmittedCommandHandle::WaitUntilFinished()
+	void RenderDevice::DeferRelease(IDeferReleaseResource* pDeferReleaseResource)
 	{
-		VulkanCheckSucceed(vkWaitForFences(m_RenderDevice.m_Device, 1, &m_Fence, VK_TRUE, kInfiniteWaitTime));
+		ZE_CHECK(m_HadBeganFrame);
+		m_FrameDeferReleaseQueues[m_FrameIndex].DeferRelease(pDeferReleaseResource);
+	}
+	
+	void RenderDevice::DeferRelease(const DeferReleaseLifetimeResource<Buffer>& deferReleaseResource)
+	{
+		ZE_CHECK(m_HadBeganFrame);
+		m_FrameDeferReleaseQueues[m_FrameIndex].DeferRelease(deferReleaseResource);
+	}
+	
+	void RenderDevice::DeferRelease(const DeferReleaseLifetimeResource<Texture>& deferReleaseResource)
+	{
+		ZE_CHECK(m_HadBeganFrame);
+		m_FrameDeferReleaseQueues[m_FrameIndex].DeferRelease(deferReleaseResource);
 	}
 
-	//std::shared_ptr<RenderBackend::RenderWindow> RenderDevice::CreateSecondaryRenderWindow()
-	//{
-	//	auto pRenderWindow = std::shared_ptr<RenderBackend::RenderWindow>();
-	//	SetRenderContent(pRenderWindow);
-	//	return pRenderWindow;
-	//}
+	inline const std::shared_ptr<Texture>& RenderDevice::GetSwapchainRenderTarget() const
+	{
+		return m_RenderModule.get().GetMainRenderWindow()->GetFrameSwapchainRenderTarget();
+	}
+
+	void RenderDevice::WaitUntilIdle() const
+	{
+		vkDeviceWaitIdle(m_Device);
+	}
+	
+	void RenderDevice::BeginFrame()
+	{
+		ZE_CHECK(!m_HadBeganFrame);
+		m_FrameDeferReleaseQueues[m_FrameIndex].ReleaseAllImmediately();
+		m_FrameCommandLists[m_FrameIndex]->Reset();
+		m_HadBeganFrame = true;
+	}
+	
+	void RenderDevice::EndFrame()
+	{
+		ZE_CHECK(m_HadBeganFrame);
+		m_FrameIndex = (m_FrameIndex + 1) % kSwapBufferCount;
+		m_HadBeganFrame = false;
+	}
 }

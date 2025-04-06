@@ -4,19 +4,17 @@
 #include "Math/MathFormat.h"
 #include "Log/Log.h"
 #include "Platform/Displayable.h"
-#include "Platform/Window.h"
 
-#include <thread>
 #include <chrono>
 
 namespace ZE::Core
 {
     bool CoreModule::InitializeModule()
     {
-		m_pDisplayable = new Platform::Displayble;
-		if (!m_pDisplayable->Initialize())
+		m_DisplayDevice = new Platform::Displayble;
+		if (!m_DisplayDevice->Initialize())
 		{
-			m_pDisplayable->Shutdown();
+			m_DisplayDevice->Shutdown();
 			return false;
 		}
 
@@ -27,10 +25,10 @@ namespace ZE::Core
     {
 		ZE_LOG_INFO("Output math result:\n{}", m_MathData.accumMat);
 	
-		if (m_pDisplayable)
+		if (m_DisplayDevice)
 		{
-			m_pDisplayable->Shutdown();
-			delete m_pDisplayable;
+			m_DisplayDevice->Shutdown();
+			delete m_DisplayDevice;
 		}
     }
 
@@ -38,15 +36,14 @@ namespace ZE::Core
 
 	void CoreModule::BuildFrameTasks(tf::Taskflow& taskFlow)
 	{
-		tf::Task firstTask = taskFlow.emplace([]()
+		tf::Task processPlatformEvent = taskFlow.emplace([this]()
 		{
-			ZE_LOG_INFO("Init from first task!");
 		});
 
 		tf::Task secondTask = taskFlow.emplace([]()
 		{
-			std::this_thread::sleep_for(std::chrono::seconds(1));
-			ZE_LOG_INFO("Init from second tasks!");
+			// std::this_thread::sleep_for(std::chrono::seconds(1));
+			// ZE_LOG_INFO("Init from second tasks!");
 		});
 
 		tf::Task mathTask = taskFlow.placeholder();
@@ -54,15 +51,16 @@ namespace ZE::Core
 			MathCalculationData* pData = static_cast<MathCalculationData*>(mathTask.data());
 			ZE_CHECK(pData);
 
-			ZE_LOG_INFO("Calculating Math...");
+			// ZE_LOG_INFO("Calculating Math...");
 
 			pData->accumMat = glm::scale(pData->accumMat, pData->scale);
 		});
 
-		firstTask.precede(secondTask, mathTask);
-
-		//-------------------------------------------------------------------------
-	
-		m_pDisplayable->ProcessPlatformEvents();
+		processPlatformEvent.precede(secondTask, mathTask);
 	}
+	
+	void CoreModule::ProcessPlatformEvents()
+    {
+    	m_DisplayDevice->ProcessPlatformEvents();
+    }
 }

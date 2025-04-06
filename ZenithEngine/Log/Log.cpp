@@ -5,7 +5,6 @@
 #include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
-#include <thread>
 #include <chrono>
 
 namespace ZE::Log
@@ -42,7 +41,7 @@ namespace ZE::Log
 {
 		auto [condSwitch, cond, trueTask, falseTask] = taskFlow.emplace(
 			[this]() { m_TestBranch = !m_TestBranch; },
-			[=]() { return m_TestBranch; },
+			[this]() { return m_TestBranch; },
 			&TestStaticLoggerTask,
 			[this]() { TestLoggerTask(); }
 		);
@@ -53,14 +52,14 @@ namespace ZE::Log
 
 	void LogModule::TestStaticLoggerTask()
 	{
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-		ZE_LOG_INFO("Test static logger task!");
+		// std::this_thread::sleep_for(std::chrono::seconds(1));
+		// ZE_LOG_INFO("Test static logger task!");
 	}
 
 	void LogModule::TestLoggerTask()
 	{
-		std::this_thread::sleep_for(std::chrono::milliseconds(30));
-		ZE_LOG_INFO("Test logger task!");
+		// std::this_thread::sleep_for(std::chrono::milliseconds(30));
+		// ZE_LOG_INFO("Test logger task!");
 	}
 
 }

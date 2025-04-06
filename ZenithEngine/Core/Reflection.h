@@ -143,13 +143,7 @@ namespace ZE::Core
 		{
 			return std::ranges::find(m_BaseTypes, refl::type_descriptor<Base>().name) != m_BaseTypes.end();
 		}
-
-		template <Reflectable T>
-		bool CanDowncastTo() const
-		{
-			return std::strcmp(refl::type_descriptor<T>().name.c_str(), m_Name.c_str()) == 0;
-		}
-
+	
 	private:
 
 		template <Reflectable T>
@@ -175,15 +169,17 @@ namespace ZE::Core
 	class IReflectable
 	{
 	public:
-
-		virtual std::string GetTypeName() const = 0;
+		
+		virtual const std::string& GetTypeName() const = 0;
 	};
 
+	template <typename T>
+	using ReflectImplFriend = ::refl_impl::metadata::type_info__<T>;
+}
+
 #define ZE_CLASS_REFL() public: \
-	virtual std::string GetTypeName() const { return ZE::Core::TypeInfo::Get<::refl::trait::remove_qualifiers_t<decltype(*this)>>().GetTypeName(); } \
+	virtual const std::string& GetTypeName() const { return ZE::Core::TypeInfo::Get<::refl::trait::remove_qualifiers_t<decltype(*this)>>().GetTypeName(); } \
 	template <ZE::Core::Reflectable Base> \
 	bool IsDerivedFrom() { return ZE::Core::TypeInfo::Get<::refl::trait::remove_qualifiers_t<decltype(*this)>>().IsDerivedFrom<Base>(); } \
 	template <ZE::Core::Reflectable T> \
-	bool CanDowncastTo() { return ZE::Core::TypeInfo::Get<::refl::trait::remove_qualifiers_t<decltype(*this)>>().CanDowncastTo<T>(); }
-
-}
+	bool CanDowncastTo() { return std::strcmp(GetTypeName().c_str(), refl::type_descriptor<T>().name.c_str()) == 0; }

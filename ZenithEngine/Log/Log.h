@@ -1,10 +1,9 @@
 #pragma once
 
-#include "ModuleDefines.h"
 #include "Core/Module.h"
 
-#include "spdlog/spdlog.h"
-#include "spdlog/logger.h"
+#include <spdlog/spdlog.h>
+#include <spdlog/logger.h>
 
 #include <memory>
 
@@ -14,7 +13,7 @@ namespace ZE::Log
 	{
 	public:
 
-		LogModule(Engine::ZenithEngine& engine)
+		LogModule(Engine::Engine& engine)
 			: Core::IModule(engine, Core::ModuleInitializePhase::PreInit, "Log")
 		{}
 

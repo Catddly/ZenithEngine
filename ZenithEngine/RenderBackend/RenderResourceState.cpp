@@ -2,50 +2,50 @@
 
 namespace ZE::RenderBackend
 {
-	bool IsCommonReadOnlyAccess(const RenderResourceState& access)
+	bool IsCommonReadOnlyAccess(const ERenderResourceState& access)
 	{
 		switch (access)
 		{
-		case RenderResourceState::IndirectBuffer:
-		case RenderResourceState::VertexBuffer:
-		case RenderResourceState::IndexBuffer:
-		case RenderResourceState::VertexShaderReadUniformBuffer:
-		case RenderResourceState::VertexShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::VertexShaderReadOther:
-		case RenderResourceState::TessellationControlShaderReadUniformBuffer:
-		case RenderResourceState::TessellationControlShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::TessellationControlShaderReadOther:
-		case RenderResourceState::TessellationEvaluationShaderReadUniformBuffer:
-		case RenderResourceState::TessellationEvaluationShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::TessellationEvaluationShaderReadOther:
-		case RenderResourceState::GeometryShaderReadUniformBuffer:
-		case RenderResourceState::GeometryShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::GeometryShaderReadOther:
-		case RenderResourceState::FragmentShaderReadUniformBuffer:
-		case RenderResourceState::FragmentShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::FragmentShaderReadColorInputAttachment:
-		case RenderResourceState::FragmentShaderReadDepthStencilInputAttachment:
-		case RenderResourceState::FragmentShaderReadOther:
-		case RenderResourceState::ColorAttachmentRead:
-		case RenderResourceState::DepthStencilAttachmentRead:
-		case RenderResourceState::ComputeShaderReadUniformBuffer:
-		case RenderResourceState::ComputeShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::ComputeShaderReadOther:
-		case RenderResourceState::AnyShaderReadUniformBuffer:
-		case RenderResourceState::AnyShaderReadUniformBufferOrVertexBuffer:
-		case RenderResourceState::AnyShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::AnyShaderReadOther:
-		case RenderResourceState::TransferRead:
-		case RenderResourceState::HostRead:
-		case RenderResourceState::Present:
+		case ERenderResourceState::IndirectBuffer:
+		case ERenderResourceState::VertexBuffer:
+		case ERenderResourceState::IndexBuffer:
+		case ERenderResourceState::VertexShaderReadUniformBuffer:
+		case ERenderResourceState::VertexShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::VertexShaderReadOther:
+		case ERenderResourceState::TessellationControlShaderReadUniformBuffer:
+		case ERenderResourceState::TessellationControlShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::TessellationControlShaderReadOther:
+		case ERenderResourceState::TessellationEvaluationShaderReadUniformBuffer:
+		case ERenderResourceState::TessellationEvaluationShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::TessellationEvaluationShaderReadOther:
+		case ERenderResourceState::GeometryShaderReadUniformBuffer:
+		case ERenderResourceState::GeometryShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::GeometryShaderReadOther:
+		case ERenderResourceState::FragmentShaderReadUniformBuffer:
+		case ERenderResourceState::FragmentShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::FragmentShaderReadColorInputAttachment:
+		case ERenderResourceState::FragmentShaderReadDepthStencilInputAttachment:
+		case ERenderResourceState::FragmentShaderReadOther:
+		case ERenderResourceState::ColorAttachmentRead:
+		case ERenderResourceState::DepthStencilAttachmentRead:
+		case ERenderResourceState::ComputeShaderReadUniformBuffer:
+		case ERenderResourceState::ComputeShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::ComputeShaderReadOther:
+		case ERenderResourceState::AnyShaderReadUniformBuffer:
+		case ERenderResourceState::AnyShaderReadUniformBufferOrVertexBuffer:
+		case ERenderResourceState::AnyShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::AnyShaderReadOther:
+		case ERenderResourceState::TransferRead:
+		case ERenderResourceState::HostRead:
+		case ERenderResourceState::Present:
 
-		case RenderResourceState::RayTracingShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::RayTracingShaderReadColorInputAttachment:
-		case RenderResourceState::RayTracingShaderReadDepthStencilInputAttachment:
-		case RenderResourceState::RayTracingShaderReadAccelerationStructure:
-		case RenderResourceState::RayTracingShaderReadOther:
+		case ERenderResourceState::RayTracingShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::RayTracingShaderReadColorInputAttachment:
+		case ERenderResourceState::RayTracingShaderReadDepthStencilInputAttachment:
+		case ERenderResourceState::RayTracingShaderReadAccelerationStructure:
+		case ERenderResourceState::RayTracingShaderReadOther:
 
-		case RenderResourceState::AccelerationStructureBuildRead:
+		case ERenderResourceState::AccelerationStructureBuildRead:
 
 			return true;
 			break;
@@ -56,31 +56,31 @@ namespace ZE::RenderBackend
 		}
 	}
 
-	bool IsCommonWriteAccess(const RenderResourceState& access)
+	bool IsCommonWriteAccess(const ERenderResourceState& access)
 	{
 		switch (access)
 		{
-		case RenderResourceState::VertexShaderWrite:
-		case RenderResourceState::TessellationControlShaderWrite:
-		case RenderResourceState::TessellationEvaluationShaderWrite:
-		case RenderResourceState::GeometryShaderWrite:
-		case RenderResourceState::FragmentShaderWrite:
-		case RenderResourceState::ColorAttachmentWrite:
-		case RenderResourceState::DepthStencilAttachmentWrite:
-		case RenderResourceState::DepthAttachmentWriteStencilReadOnly:
-		case RenderResourceState::StencilAttachmentWriteDepthReadOnly:
-		case RenderResourceState::ComputeShaderWrite:
-		case RenderResourceState::AnyShaderWrite:
-		case RenderResourceState::TransferWrite:
-		case RenderResourceState::HostWrite:
+		case ERenderResourceState::VertexShaderWrite:
+		case ERenderResourceState::TessellationControlShaderWrite:
+		case ERenderResourceState::TessellationEvaluationShaderWrite:
+		case ERenderResourceState::GeometryShaderWrite:
+		case ERenderResourceState::FragmentShaderWrite:
+		case ERenderResourceState::ColorAttachmentWrite:
+		case ERenderResourceState::DepthStencilAttachmentWrite:
+		case ERenderResourceState::DepthAttachmentWriteStencilReadOnly:
+		case ERenderResourceState::StencilAttachmentWriteDepthReadOnly:
+		case ERenderResourceState::ComputeShaderWrite:
+		case ERenderResourceState::AnyShaderWrite:
+		case ERenderResourceState::TransferWrite:
+		case ERenderResourceState::HostWrite:
 
 			// TODO: Should we put General in write access?
-		case RenderResourceState::General:
+		case ERenderResourceState::General:
 
-		case RenderResourceState::ColorAttachmentReadWrite:
+		case ERenderResourceState::ColorAttachmentReadWrite:
 
-		case RenderResourceState::AccelerationStructureBuildWrite:
-		case RenderResourceState::AccelerationStructureBufferWrite:
+		case ERenderResourceState::AccelerationStructureBuildWrite:
+		case ERenderResourceState::AccelerationStructureBufferWrite:
 
 			return true;
 			break;
@@ -91,41 +91,41 @@ namespace ZE::RenderBackend
 		}
 	}
 
-	bool IsRasterReadOnlyAccess(const RenderResourceState& access)
+	bool IsRasterReadOnlyAccess(const ERenderResourceState& access)
 	{
 		switch (access)
 		{
-		case RenderResourceState::VertexBuffer:
-		case RenderResourceState::IndexBuffer:
+		case ERenderResourceState::VertexBuffer:
+		case ERenderResourceState::IndexBuffer:
 
-		case RenderResourceState::VertexShaderReadUniformBuffer:
-		case RenderResourceState::VertexShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::VertexShaderReadOther:
-		case RenderResourceState::TessellationControlShaderReadUniformBuffer:
-		case RenderResourceState::TessellationControlShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::TessellationControlShaderReadOther:
-		case RenderResourceState::TessellationEvaluationShaderReadUniformBuffer:
-		case RenderResourceState::TessellationEvaluationShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::TessellationEvaluationShaderReadOther:
-		case RenderResourceState::GeometryShaderReadUniformBuffer:
-		case RenderResourceState::GeometryShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::GeometryShaderReadOther:
-		case RenderResourceState::FragmentShaderReadUniformBuffer:
-		case RenderResourceState::FragmentShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::FragmentShaderReadColorInputAttachment:
-		case RenderResourceState::FragmentShaderReadDepthStencilInputAttachment:
-		case RenderResourceState::FragmentShaderReadOther:
-		case RenderResourceState::ColorAttachmentRead:
-		case RenderResourceState::DepthStencilAttachmentRead:
+		case ERenderResourceState::VertexShaderReadUniformBuffer:
+		case ERenderResourceState::VertexShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::VertexShaderReadOther:
+		case ERenderResourceState::TessellationControlShaderReadUniformBuffer:
+		case ERenderResourceState::TessellationControlShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::TessellationControlShaderReadOther:
+		case ERenderResourceState::TessellationEvaluationShaderReadUniformBuffer:
+		case ERenderResourceState::TessellationEvaluationShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::TessellationEvaluationShaderReadOther:
+		case ERenderResourceState::GeometryShaderReadUniformBuffer:
+		case ERenderResourceState::GeometryShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::GeometryShaderReadOther:
+		case ERenderResourceState::FragmentShaderReadUniformBuffer:
+		case ERenderResourceState::FragmentShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::FragmentShaderReadColorInputAttachment:
+		case ERenderResourceState::FragmentShaderReadDepthStencilInputAttachment:
+		case ERenderResourceState::FragmentShaderReadOther:
+		case ERenderResourceState::ColorAttachmentRead:
+		case ERenderResourceState::DepthStencilAttachmentRead:
 
-		case RenderResourceState::DepthAttachmentWriteStencilReadOnly:
-		case RenderResourceState::StencilAttachmentWriteDepthReadOnly:
-		case RenderResourceState::ColorAttachmentReadWrite:
+		case ERenderResourceState::DepthAttachmentWriteStencilReadOnly:
+		case ERenderResourceState::StencilAttachmentWriteDepthReadOnly:
+		case ERenderResourceState::ColorAttachmentReadWrite:
 
-		case RenderResourceState::AnyShaderReadUniformBuffer:
-		case RenderResourceState::AnyShaderReadUniformBufferOrVertexBuffer:
-		case RenderResourceState::AnyShaderReadSampledImageOrUniformTexelBuffer:
-		case RenderResourceState::AnyShaderReadOther:
+		case ERenderResourceState::AnyShaderReadUniformBuffer:
+		case ERenderResourceState::AnyShaderReadUniformBufferOrVertexBuffer:
+		case ERenderResourceState::AnyShaderReadSampledImageOrUniformTexelBuffer:
+		case ERenderResourceState::AnyShaderReadOther:
 
 			return true;
 			break;
@@ -136,25 +136,24 @@ namespace ZE::RenderBackend
 		}
 	}
 
-	bool IsRasterWriteAccess(const RenderResourceState& access)
+	bool IsRasterWriteAccess(const ERenderResourceState& access)
 	{
 		switch (access)
 		{
-		case RenderResourceState::ColorAttachmentReadWrite:
+		case ERenderResourceState::ColorAttachmentReadWrite:
 
-		case RenderResourceState::VertexShaderWrite:
-		case RenderResourceState::TessellationControlShaderWrite:
-		case RenderResourceState::TessellationEvaluationShaderWrite:
-		case RenderResourceState::GeometryShaderWrite:
-		case RenderResourceState::FragmentShaderWrite:
-		case RenderResourceState::ColorAttachmentWrite:
-		case RenderResourceState::DepthStencilAttachmentWrite:
-		case RenderResourceState::DepthAttachmentWriteStencilReadOnly:
-		case RenderResourceState::StencilAttachmentWriteDepthReadOnly:
+		case ERenderResourceState::VertexShaderWrite:
+		case ERenderResourceState::TessellationControlShaderWrite:
+		case ERenderResourceState::TessellationEvaluationShaderWrite:
+		case ERenderResourceState::GeometryShaderWrite:
+		case ERenderResourceState::FragmentShaderWrite:
+		case ERenderResourceState::ColorAttachmentWrite:
+		case ERenderResourceState::DepthStencilAttachmentWrite:
+		case ERenderResourceState::DepthAttachmentWriteStencilReadOnly:
+		case ERenderResourceState::StencilAttachmentWriteDepthReadOnly:
 
-		case RenderResourceState::AnyShaderWrite:
-
-
+		case ERenderResourceState::AnyShaderWrite:
+			
 			return true;
 			break;
 
@@ -163,7 +162,5 @@ namespace ZE::RenderBackend
 			break;
 		}
 	}
-
-
 }
 

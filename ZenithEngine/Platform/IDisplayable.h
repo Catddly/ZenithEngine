@@ -1,9 +1,5 @@
 #pragma once
 
-#include "Window.h"
-
-#include <memory>
-
 namespace ZE::Platform
 {
 	class IDisplayable
@@ -18,7 +14,5 @@ namespace ZE::Platform
 		virtual void ProcessPlatformEvents() = 0;
 
 	private:
-
-
 	};
 }

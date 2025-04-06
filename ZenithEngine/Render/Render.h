@@ -1,10 +1,16 @@
 #pragma once
 
 #include "Core/Module.h"
+#include "Renderer/TriangleRenderer.h"
 
 #include <memory>
 
-namespace ZE::RenderBackend { class RenderDevice; class RenderWindow; class VertexShader; class PixelShader; }
+namespace ZE::RenderBackend
+{
+	class PipelineStateCache;
+	class RenderDevice; class RenderWindow;
+	class VertexShader; class PixelShader;
+}
 
 namespace ZE::Render
 {
@@ -13,7 +19,7 @@ namespace ZE::Render
 	{
 	public:
 
-		RenderModule(Engine::ZenithEngine& engine)
+		RenderModule(Engine::Engine& engine)
 			: Core::IModule(engine, Core::ModuleInitializePhase::Init, "Render")
 		{}
 
@@ -24,7 +30,7 @@ namespace ZE::Render
 
 	public:
 
-		std::shared_ptr<RenderBackend::RenderWindow> GetMainRenderWindow() const { return m_pMainRenderWindow; }
+		std::shared_ptr<RenderBackend::RenderWindow> GetMainRenderWindow() const { return m_MainRenderWindow; }
 
 		//inline std::shared_ptr<RenderBackend::RenderWindow> CreateSecondaryRenderWindow();
 	
@@ -34,12 +40,15 @@ namespace ZE::Render
 
 	private:
 
-		RenderBackend::RenderDevice*					m_pRenderDevice = nullptr;
+		RenderBackend::RenderDevice*					m_RenderDevice = nullptr;
+		RenderBackend::PipelineStateCache*				m_PipelineStateCache = nullptr;
 
-		std::shared_ptr<RenderBackend::RenderWindow>	m_pMainRenderWindow = nullptr;
+		std::shared_ptr<RenderBackend::RenderWindow>	m_MainRenderWindow = nullptr;
+
+		Renderer::TriangleRenderer						m_TriangleRenderer;
 
 		// Temp
-		std::shared_ptr<RenderBackend::VertexShader>	m_pTriangleVS = nullptr;
-		std::shared_ptr<RenderBackend::PixelShader>		m_pTrianglePS = nullptr;
+		// std::shared_ptr<RenderBackend::VertexShader>	m_TriangleVS = nullptr;
+		// std::shared_ptr<RenderBackend::PixelShader>		m_TrianglePS = nullptr;
 	};
 }

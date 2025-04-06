@@ -2,9 +2,8 @@
 
 #include "Core/Assertion.h"
 #include "Log/Log.h"
-#include "Window.h"
 
-#include "GLFW/glfw3.h"
+#include <GLFW/glfw3.h>
 
 namespace ZE::Platform
 {
@@ -15,33 +14,32 @@ namespace ZE::Platform
 
 	bool Displayble::Initialize()
 	{
-		ZE_CHECK(!m_bIsInitialized);
+		ZE_CHECK(!m_IsInitialized);
 
 		int result = glfwInit();
-
-		m_bIsInitialized = result == GLFW_TRUE;
+		m_IsInitialized = result == GLFW_TRUE;
 
 		if (!glfwVulkanSupported())
 		{
-			m_bIsInitialized = false;
+			m_IsInitialized = false;
 			ZE_LOG_ERROR("Display device doesn't support vulkan!");
 			glfwTerminate();
 		}
 
-		if (m_bIsInitialized)
+		if (m_IsInitialized)
 		{
 			glfwSetErrorCallback(&GLFWErrorCallback);
 		}
-
-		return m_bIsInitialized;
+		
+		return m_IsInitialized;
 	}
 
 	void Displayble::Shutdown()
 	{
-		if (m_bIsInitialized)
+		if (m_IsInitialized)
 		{
 			glfwTerminate();
-			m_bIsInitialized = false;
+			m_IsInitialized = false;
 		}
 	}
 

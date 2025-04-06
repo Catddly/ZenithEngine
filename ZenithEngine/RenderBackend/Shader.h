@@ -1,19 +1,29 @@
 #pragma once
 
 #include "Core/Reflection.h"
+#include "RenderDeviceChild.h"
 
 #include <refl.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include <string>
+#include <string_view>
 #include <vector>
-#include <limits>
+#include <unordered_map>
 
 namespace ZE::RenderBackend
 {
 	class RenderDevice;
 
-	class Shader : public Core::IReflectable
+	enum class EShaderBindingResourceType : uint8_t
+	{
+		Unknown = 0,
+		UniformBuffer,
+		StorageBuffer,
+		Texture2D,
+	};
+	
+	class Shader : public Core::IReflectable, public RenderDeviceChild
 	{
 		ZE_CLASS_REFL()
 
@@ -23,56 +33,56 @@ namespace ZE::RenderBackend
 		friend class GraphicPipelineState;
 		friend class GraphicPipelineStateBuilder;
 
-		friend class ::refl_impl::metadata::type_info__<ZE::RenderBackend::Shader>;
+		friend Core::ReflectImplFriend<Shader>;
 
 	public:
 
 		using ByteCode = std::vector<std::byte>;
-
-		enum class EBindingResourceType
-		{
-			Unknown = 0,
-			UniformBuffer,
-			StorageBuffer,
-			Texture2D,
-		};
+		
+		using ResourceNameToTypeMap = std::unordered_map<std::string, EShaderBindingResourceType>;
 
 		struct Slot
 		{
 			//uint32_t				m_SetIndex = std::numeric_limits<uint32_t>::max();
 			//uint32_t				m_BindingIndex = std::numeric_limits<uint32_t>::max();
-			EBindingResourceType	m_ResourceType = EBindingResourceType::Unknown;
+			EShaderBindingResourceType	m_ResourceType = EShaderBindingResourceType::Unknown;
 		};
 
-		struct ShaderLayout
+		struct Layout
 		{
-			std::vector<std::vector<Slot>>					m_ResourceSetArray;
+			std::vector<ResourceNameToTypeMap>			m_ResourceSetArray;
 		};
 
 		struct LayoutBuilder
 		{
-			LayoutBuilder& PushResource(uint32_t set, EBindingResourceType type);
+			LayoutBuilder(Shader* pShader);
+			
+			LayoutBuilder& BindResource(uint32_t set, const std::string& name, EShaderBindingResourceType type);
 
-			inline ShaderLayout Build();
+			void Build();
 
 		private:
 
-			std::vector<std::vector<Slot>>					m_ResourceSetArray;
+			Shader*										m_pShader = nullptr;
+			std::vector<ResourceNameToTypeMap>			m_ResourceSetBindings;
 		};
 
 		Shader(RenderDevice& renderDevice, const ByteCode& byteCode);
 		Shader(RenderDevice& renderDevice, const std::string& filepath);
+		
 		virtual ~Shader();
+
+		virtual uint64_t GetHash() const { return m_Hash; }
 
 	protected:
 
 		void ReleaseGPUShaderObject();
-
+		
+		uint64_t							m_Hash = 0;
+	
 	private:
 
-		RenderDevice&						m_RenderDevice;
-
-		ShaderLayout						m_Layout;
+		Layout								m_Layout;
 	
 		VkShaderModule						m_Shader = nullptr;
 	};
@@ -85,7 +95,7 @@ namespace ZE::RenderBackend
 
 		friend class GraphicPipelineState;
 
-		friend class ::refl_impl::metadata::type_info__<ZE::RenderBackend::VertexShader>;
+		friend Core::ReflectImplFriend<VertexShader>;
 
 	public:
 
@@ -97,12 +107,15 @@ namespace ZE::RenderBackend
 
 		struct InputLayoutBuilder
 		{
+			InputLayoutBuilder(VertexShader* pVertexShader);
+			
 			InputLayoutBuilder& AddLayout(VkFormat format, uint32_t size, uint32_t offset);
 			
-			inline InputLayout Build();
+			void Build();
 
 		private:
 
+			VertexShader*											m_pVertexShader = nullptr;
 			uint32_t												m_TotalByteSize = 0;
 			std::vector<VkVertexInputAttributeDescription>			m_InputAttribArray;
 		};
@@ -124,7 +137,7 @@ namespace ZE::RenderBackend
 
 		friend class GraphicPipelineState;
 
-		friend class ::refl_impl::metadata::type_info__<ZE::RenderBackend::PixelShader>;
+		friend Core::ReflectImplFriend<PixelShader>;
 
 	public:
 
@@ -140,3 +153,12 @@ namespace ZE::RenderBackend
 REFL_AUTO(type(ZE::RenderBackend::Shader), field(m_Layout))
 REFL_AUTO(type(ZE::RenderBackend::VertexShader, bases<ZE::RenderBackend::Shader>), field(m_InputLayout))
 REFL_AUTO(type(ZE::RenderBackend::PixelShader, bases<ZE::RenderBackend::Shader>))
+
+template <>
+struct std::hash<ZE::RenderBackend::Shader::ByteCode>
+{
+	std::size_t operator()(const ZE::RenderBackend::Shader::ByteCode& value) const noexcept
+	{
+		return std::hash<std::string_view>{}(std::string_view{reinterpret_cast<const char*>(value.data()), value.size()});
+	}
+};

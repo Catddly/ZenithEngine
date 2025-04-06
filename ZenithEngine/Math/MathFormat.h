@@ -1,7 +1,7 @@
 #pragma once
 
-#include "spdlog/fmt/bundled/format.h"
-#include "glm/glm.hpp"
+#include <spdlog/fmt/bundled/format.h>
+#include <glm/glm.hpp>
 
 #include <format>
 

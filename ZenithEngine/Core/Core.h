@@ -2,8 +2,8 @@
 
 #include "Core/Module.h"
 
-#include "glm/glm.hpp"
-#include "glm/gtc/matrix_transform.hpp"
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 namespace ZE::Platform { class IDisplayable; class Window; }
 
@@ -13,7 +13,7 @@ namespace ZE::Core
 	{
 	public:
 
-		CoreModule(Engine::ZenithEngine& engine)
+		CoreModule(Engine::Engine& engine)
 			: IModule(engine, ModuleInitializePhase::PreInit, "Core")
 		{}
 
@@ -22,6 +22,8 @@ namespace ZE::Core
 
 		virtual void BuildFrameTasks(tf::Taskflow& taskFlow) override;
 
+		void ProcessPlatformEvents();
+		
 	private:
 
 		struct MathCalculationData
@@ -32,6 +34,6 @@ namespace ZE::Core
 
 		MathCalculationData					m_MathData;
 
-		Platform::IDisplayable*				m_pDisplayable = nullptr;
+		Platform::IDisplayable*				m_DisplayDevice = nullptr;
 	};
 }

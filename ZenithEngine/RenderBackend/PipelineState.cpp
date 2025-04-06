@@ -1,24 +1,27 @@
 #include "PipelineState.h"
 
 #include "Log/Log.h"
+#include "Core/Hash.h"
 #include "RenderDevice.h"
 #include "Shader.h"
 #include "VulkanHelper.h"
+#include "DescriptorCache.h"
 
 #include <refl.hpp>
 
 #include <unordered_map>
+#include <ranges>
 
 namespace ZE::RenderBackend
 {
-	static VkDescriptorType ToVkDescriptorType(Shader::EBindingResourceType type)
+	static VkDescriptorType ToVkDescriptorType(EShaderBindingResourceType type)
 	{
 		switch (type)
 		{
-		case ZE::RenderBackend::Shader::EBindingResourceType::Unknown: return VK_DESCRIPTOR_TYPE_MAX_ENUM;
-		case ZE::RenderBackend::Shader::EBindingResourceType::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		case ZE::RenderBackend::Shader::EBindingResourceType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		case ZE::RenderBackend::Shader::EBindingResourceType::Texture2D: return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+		case EShaderBindingResourceType::Unknown: return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+		case EShaderBindingResourceType::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		case EShaderBindingResourceType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		case EShaderBindingResourceType::Texture2D: return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 		default:
 			break;
 		}
@@ -33,7 +36,8 @@ namespace ZE::RenderBackend
 		{
 			return VK_SHADER_STAGE_VERTEX_BIT;
 		}
-		else if (pShader->CanDowncastTo<PixelShader>())
+		
+		if (pShader->CanDowncastTo<PixelShader>())
 		{
 			return VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
@@ -42,61 +46,82 @@ namespace ZE::RenderBackend
 	}
 
 	PipelineState::PipelineState(RenderDevice& renderDevice)
-		: m_RenderDevice(renderDevice)
-	{}
-
-	bool PipelineState::CreateInPlace(PipelineState* pPipelineState)
 	{
-		std::unordered_map<Shader::EBindingResourceType, uint32_t> resourceCountMap;
+		SetRenderDevice(&renderDevice);
+	}
+
+	uint64_t PipelineStateCreateDesc::GetHash() const
+	{
+		uint64_t hash = 0;
+		for (const auto& pShader : m_Shaders)
+		{
+			if (pShader)
+			{
+				hash ^= pShader->GetHash();
+			}
+		}
+		return hash;
+	}
+	
+	bool PipelineState::CreateInPlace(PipelineState* pPipelineState, const PipelineStateCreateDesc& CreateDesc)
+	{
+		std::unordered_map<EShaderBindingResourceType, uint32_t> resourceCountMap;
 		std::vector<std::vector<VkDescriptorSetLayoutBinding>> setLayoutBindingArray;
 
-		for (auto& pShader : pPipelineState->m_pShaderArray)
+		for (auto& pShader : CreateDesc.m_Shaders)
 		{
 			if (!pShader)
 			{
 				continue;
 			}
 
-			const auto& shaderSetArray = pShader->m_Layout.m_ResourceSetArray;
-			pPipelineState->m_DescriptorSetLayoutArray.resize(shaderSetArray.size());
-			setLayoutBindingArray.resize(shaderSetArray.size());
-
-			uint32_t set = 0;
-			for (auto& descriptorSetLayout : pPipelineState->m_DescriptorSetLayoutArray)
+			const auto& shaderSetMap = pShader->m_Layout.m_ResourceSetArray;
+			pPipelineState->m_DescriptorSetLayouts.resize(pPipelineState->m_DescriptorSetLayouts.size() + shaderSetMap.size());
+			setLayoutBindingArray.resize(setLayoutBindingArray.size() + shaderSetMap.size());
+			
+			for (uint32_t set = 0; set < shaderSetMap.size(); ++set)
 			{
-				const uint32_t prevBindingCount = setLayoutBindingArray[set].size();
-				setLayoutBindingArray[set].resize(shaderSetArray[set].size());
+				const uint32_t prevBindingCount = static_cast<uint32_t>(setLayoutBindingArray[set].size());
+				setLayoutBindingArray[set].resize(shaderSetMap[set].size());
 
 				for (uint32_t i = 0; i < prevBindingCount; ++i)
 				{
 					setLayoutBindingArray[set][i].stageFlags |= GetShaderVkType(pShader);
 				}
 
+				pPipelineState->m_AllocatedSetBindingMap.reserve(pPipelineState->m_AllocatedSetBindingMap.size() + shaderSetMap[set].size());
+				pPipelineState->m_AllocatedResourceTypeMap.reserve(pPipelineState->m_AllocatedResourceTypeMap.size() + shaderSetMap[set].size());
+
 				// assume shader layout is consistent across multiple pipeline shaders
-				for (uint32_t i = prevBindingCount; i < setLayoutBindingArray.size(); ++i)
+				uint32_t currentBinding = prevBindingCount;
+				for (const auto& [name, type] : shaderSetMap[set])
 				{
-					setLayoutBindingArray[set][i].binding = i;
-					setLayoutBindingArray[set][i].descriptorCount = 1;
-					setLayoutBindingArray[set][i].pImmutableSamplers = nullptr;
-					setLayoutBindingArray[set][i].stageFlags = GetShaderVkType(pShader);
-					setLayoutBindingArray[set][i].descriptorType = ToVkDescriptorType(shaderSetArray[set][i].m_ResourceType);
+					setLayoutBindingArray[set][currentBinding].binding = currentBinding;
+					setLayoutBindingArray[set][currentBinding].descriptorCount = 1;
+					setLayoutBindingArray[set][currentBinding].pImmutableSamplers = nullptr;
+					setLayoutBindingArray[set][currentBinding].stageFlags = GetShaderVkType(pShader);
+					setLayoutBindingArray[set][currentBinding].descriptorType = ToVkDescriptorType(type);
+					
+					// TODO: sanity check
+					pPipelineState->m_AllocatedSetBindingMap.emplace(name, std::make_pair(set, currentBinding));
+					pPipelineState->m_AllocatedResourceTypeMap.emplace(name, type);
 
-					resourceCountMap[shaderSetArray[set][i].m_ResourceType] += 1;
+					resourceCountMap[type] += 1;
+					
+					currentBinding++;
 				}
-
-				++set;
 			}
 		}
 
-		for (uint32_t i = 0; i < setLayoutBindingArray.size(); ++i)
+		for (uint32_t set = 0; set < setLayoutBindingArray.size(); ++set)
 		{
 			VulkanZeroStruct(VkDescriptorSetLayoutCreateInfo, setLayoutCI);
 			setLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-			setLayoutCI.bindingCount = static_cast<uint32_t>(setLayoutBindingArray[i].size());
-			setLayoutCI.pBindings = setLayoutBindingArray[i].data();
+			setLayoutCI.bindingCount = static_cast<uint32_t>(setLayoutBindingArray[set].size());
+			setLayoutCI.pBindings = setLayoutBindingArray[set].data();
 			setLayoutCI.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
 
-			VulkanCheckSucceed(vkCreateDescriptorSetLayout(pPipelineState->m_RenderDevice.m_Device, &setLayoutCI, nullptr, &pPipelineState->m_DescriptorSetLayoutArray[i]));
+			VulkanCheckSucceed(vkCreateDescriptorSetLayout(pPipelineState->GetRenderDevice().GetNativeDevice(), &setLayoutCI, nullptr, &pPipelineState->m_DescriptorSetLayouts[set]));
 		}
 
 		std::vector<VkDescriptorPoolSize> poolSizeArray;
@@ -108,56 +133,89 @@ namespace ZE::RenderBackend
 
 		VulkanZeroStruct(VkDescriptorPoolCreateInfo, poolCreateInfo);
 		poolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolCreateInfo.maxSets = static_cast<uint32_t>(pPipelineState->m_DescriptorSetLayoutArray.size());
+		poolCreateInfo.maxSets = static_cast<uint32_t>(pPipelineState->m_DescriptorSetLayouts.size()) * RenderDevice::kSwapBufferCount;
 		poolCreateInfo.poolSizeCount = static_cast<uint32_t>(poolSizeArray.size());
 		poolCreateInfo.pPoolSizes = poolSizeArray.data();
 		poolCreateInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 
-		VulkanCheckSucceed(vkCreateDescriptorPool(pPipelineState->m_RenderDevice.m_Device, &poolCreateInfo, nullptr, &pPipelineState->m_DescriptorPool));
+		VulkanCheckSucceed(vkCreateDescriptorPool(pPipelineState->GetRenderDevice().GetNativeDevice(), &poolCreateInfo, nullptr, &pPipelineState->m_DescriptorPool));
 
 		VulkanZeroStruct(VkPipelineLayoutCreateInfo, pipelineLayoutCI);
 		pipelineLayoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutCI.setLayoutCount = static_cast<uint32_t>(pPipelineState->m_DescriptorSetLayoutArray.size());
-		pipelineLayoutCI.pSetLayouts = pPipelineState->m_DescriptorSetLayoutArray.data();
+		pipelineLayoutCI.setLayoutCount = static_cast<uint32_t>(pPipelineState->m_DescriptorSetLayouts.size());
+		pipelineLayoutCI.pSetLayouts = pPipelineState->m_DescriptorSetLayouts.data();
 
-		VulkanCheckSucceed(vkCreatePipelineLayout(pPipelineState->m_RenderDevice.m_Device, &pipelineLayoutCI, nullptr, &pPipelineState->m_Layout));
+		VulkanCheckSucceed(vkCreatePipelineLayout(pPipelineState->GetRenderDevice().GetNativeDevice(), &pipelineLayoutCI, nullptr, &pPipelineState->m_Layout));
 
 		return true;
+	}
+	
+	PipelineState::BoundShaderResourceLocation PipelineState::FindBoundResourceLocation(const std::string& name)
+	{
+		if (auto iter = m_AllocatedSetBindingMap.find(name); iter != m_AllocatedSetBindingMap.end())
+		{
+			return {iter->second.first, iter->second.second};
+		}
+
+		return {};
+	}
+	
+	EShaderBindingResourceType PipelineState::FindBoundResourceType(const std::string& name)
+	{
+		if (auto iter = m_AllocatedResourceTypeMap.find(name); iter != m_AllocatedResourceTypeMap.end())
+		{
+			return iter->second;
+		}
+
+		return EShaderBindingResourceType::Unknown;
 	}
 
 	PipelineState::~PipelineState()
 	{
-		vkDestroyPipelineLayout(m_RenderDevice.m_Device, m_Layout, nullptr);
-	}
-
-	GraphicPipelineState* GraphicPipelineState::Builder::Build(RenderDevice& renderDevice)
-	{
-		if (!m_pVertexShader || !m_pVertexShader->m_Shader)
+		for (auto& setLayout : m_DescriptorSetLayouts)
 		{
-			ZE_LOG_ERROR("Graphic pipeline must be created with a valid vertex shader!");
-			return nullptr;
+			vkDestroyDescriptorSetLayout(GetRenderDevice().GetNativeDevice(), setLayout, nullptr);
 		}
+		m_DescriptorSetLayouts.clear();
+		vkDestroyDescriptorPool(GetRenderDevice().GetNativeDevice(), m_DescriptorPool, nullptr);
+		m_DescriptorPool = nullptr;
+		vkDestroyPipelineLayout(GetRenderDevice().GetNativeDevice(), m_Layout, nullptr);
+		m_Layout = nullptr;
 
-		GraphicPipelineState::Settings settings{
-			.m_ColorInputFormatArray = std::move(m_ColorInputFormatArray),
-			.m_DepthStencilFormat = m_DepthStencilFormat,
-		};
-
-		return GraphicPipelineState::Create(renderDevice, settings, m_pVertexShader, m_pPixelShader);
+		GetRenderDevice().GetFrameDescriptorCache()->MarkDirty(this);
 	}
+
+	// GraphicPipelineState* GraphicPipelineState::Builder::Build(RenderDevice& renderDevice)
+	// {
+	// 	if (!m_pVertexShader || !m_pVertexShader->m_Shader)
+	// 	{
+	// 		ZE_LOG_ERROR("Graphic pipeline must be created with a valid vertex shader!");
+	// 		return nullptr;
+	// 	}
+	//
+	// 	Settings settings{
+	// 		.m_ColorInputFormatArray = std::move(m_ColorInputFormatArray),
+	// 		.m_DepthStencilFormat = m_DepthStencilFormat,
+	// 	};
+	//
+	// 	return Create(renderDevice, settings, m_pVertexShader, m_pPixelShader);
+	// }
 
 	GraphicPipelineState::GraphicPipelineState(RenderDevice& renderDevice)
 		: PipelineState(renderDevice)
 	{}
 
-	GraphicPipelineState* GraphicPipelineState::Create(RenderDevice& renderDevice, const Settings& settings, const std::shared_ptr<VertexShader>& pVertexShader, const std::shared_ptr<PixelShader>& pPixelShader)
+	GraphicPipelineState* GraphicPipelineState::Create(RenderDevice& renderDevice, const GraphicPipelineStateCreateDesc& CreateDesc)
 	{
+		if (!CreateDesc.m_Shaders[0])
+		{
+			return nullptr;
+		}
+
 		GraphicPipelineState* pGraphicPSO = new GraphicPipelineState(renderDevice);
-
-		pGraphicPSO->m_pShaderArray.push_back(pVertexShader);
-		pGraphicPSO->m_pShaderArray.push_back(pPixelShader);
-
-		if (!CreateInPlace(pGraphicPSO))
+		pGraphicPSO->m_CreateDesc = CreateDesc;
+		
+		if (!CreateInPlace(pGraphicPSO, CreateDesc))
 		{
 			delete pGraphicPSO;
 			return nullptr;
@@ -173,7 +231,7 @@ namespace ZE::RenderBackend
 		rasterizationStateCI.cullMode = VK_CULL_MODE_BACK_BIT;
 		rasterizationStateCI.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		rasterizationStateCI.depthClampEnable = VK_FALSE;
-		rasterizationStateCI.rasterizerDiscardEnable = VK_TRUE;
+		rasterizationStateCI.rasterizerDiscardEnable = !CreateDesc.m_Shaders[1] ? VK_TRUE : VK_FALSE;
 		rasterizationStateCI.depthBiasEnable = VK_FALSE;
 		rasterizationStateCI.lineWidth = 1.0f;
 
@@ -213,6 +271,10 @@ namespace ZE::RenderBackend
 		multisampleStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisampleStateCI.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
+		const auto* pVertexShader = static_cast<const VertexShader*>(CreateDesc.m_Shaders[0].get());
+		const auto* pPixelShader = static_cast<const PixelShader*>(CreateDesc.m_Shaders[1].get());
+		// auto* pPixelShader = CreateDesc.m_Shaders[1] ? static_cast<const PixelShader*>(CreateDesc.m_Shaders[1].get()) : nullptr;
+		
 		VkVertexInputBindingDescription vertexInputBinding = {};
 		vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		vertexInputBinding.binding = 0;
@@ -227,7 +289,7 @@ namespace ZE::RenderBackend
 
 		std::vector<VkPipelineShaderStageCreateInfo> shaderPipelineInfos(pPixelShader ? 2 : 1);
 
-		memset(&shaderPipelineInfos[0], 0, sizeof(VkPipelineShaderStageCreateInfo));
+		memset(shaderPipelineInfos.data(), 0, sizeof(VkPipelineShaderStageCreateInfo));
 		shaderPipelineInfos[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		shaderPipelineInfos[0].module = pVertexShader->m_Shader;
 		shaderPipelineInfos[0].pName = "Main";
@@ -243,12 +305,12 @@ namespace ZE::RenderBackend
 		}
 
 		// attachment information for dynamic rendering
-		VulkanZeroStruct(VkPipelineRenderingCreateInfoKHR, pipelineRenderingCI)
+		VulkanZeroStruct(VkPipelineRenderingCreateInfoKHR, pipelineRenderingCI);
 		pipelineRenderingCI.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
-		pipelineRenderingCI.colorAttachmentCount = static_cast<uint32_t>(settings.m_ColorInputFormatArray.size());
-		pipelineRenderingCI.pColorAttachmentFormats = settings.m_ColorInputFormatArray.data();
-		pipelineRenderingCI.depthAttachmentFormat = settings.m_DepthStencilFormat;
-		pipelineRenderingCI.stencilAttachmentFormat = settings.m_DepthStencilFormat;
+		pipelineRenderingCI.colorAttachmentCount = static_cast<uint32_t>(CreateDesc.m_ColorInputFormatArray.size());
+		pipelineRenderingCI.pColorAttachmentFormats = CreateDesc.m_ColorInputFormatArray.data();
+		pipelineRenderingCI.depthAttachmentFormat = CreateDesc.m_DepthStencilFormat;
+		pipelineRenderingCI.stencilAttachmentFormat = CreateDesc.m_DepthStencilFormat;
 
 		VulkanZeroStruct(VkGraphicsPipelineCreateInfo, graphicPipelineCI);
 		graphicPipelineCI.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -265,16 +327,18 @@ namespace ZE::RenderBackend
 		graphicPipelineCI.pDynamicState = &dynamicStateCI;
 		graphicPipelineCI.pNext = &pipelineRenderingCI;
 
-		VulkanCheckSucceed(vkCreateGraphicsPipelines(pGraphicPSO->m_RenderDevice.m_Device, nullptr, 1, &graphicPipelineCI, nullptr, &pGraphicPSO->m_Pipeline));
-
-		pVertexShader->ReleaseGPUShaderObject();
-		pPixelShader->ReleaseGPUShaderObject();
+		VulkanCheckSucceed(vkCreateGraphicsPipelines(pGraphicPSO->GetRenderDevice().GetNativeDevice(), nullptr, 1, &graphicPipelineCI, nullptr, &pGraphicPSO->m_Pipeline));
+		
+		for (auto& pShader : pGraphicPSO->m_CreateDesc.m_Shaders)
+		{
+			pShader->ReleaseGPUShaderObject();
+		}
 
 		return pGraphicPSO;
 	}
 
 	GraphicPipelineState::~GraphicPipelineState()
 	{
-		vkDestroyPipeline(m_RenderDevice.m_Device, m_Pipeline, nullptr);
+		vkDestroyPipeline(GetRenderDevice().GetNativeDevice(), m_Pipeline, nullptr);
 	}
 }

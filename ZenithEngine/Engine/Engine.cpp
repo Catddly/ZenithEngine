@@ -2,113 +2,138 @@
 
 #include "Core/Assertion.h"
 #include "Core/Core.h"
+#include "Core/Timer.h"
 #include "Log/Log.h"
 #include "Render/Render.h"
 #include "Platform/Window.h"
-#include "Platform/Displayable.h"
 #include "RenderBackend/RenderWindow.h"
 
-#include "GLFW/glfw3.h"
+#include <GLFW/glfw3.h>
+
+#include <numeric>
 
 namespace ZE::Engine
 {
-	bool ZenithEngine::PreInitialize()
+	bool Engine::PreInitialize()
 	{
-		ZE_CHECK(!m_bIsPreInitialized);
+		ZE_CHECK(!m_IsPreInitialized);
 
-		m_pLogModule = new Log::LogModule(*this);
-		if (!PreInitializeModule(m_pLogModule))
+		m_LogModule = new Log::LogModule(*this);
+		if (!PreInitializeModule(m_LogModule))
 		{
 			return false;
 		}
 
-		m_pCoreModule = new Core::CoreModule(*this);
-		if (!PreInitializeModule(m_pCoreModule))
+		m_CoreModule = new Core::CoreModule(*this);
+		if (!PreInitializeModule(m_CoreModule))
 		{
 			return false;
 		}
 
-		m_bIsPreInitialized = true;
-		return m_bIsPreInitialized;
+		m_IsPreInitialized = true;
+		return m_IsPreInitialized;
 	}
 
-	bool ZenithEngine::Initialize()
+	bool Engine::Initialize()
 	{
-		ZE_CHECK(!m_bIsInitialized);
+		ZE_CHECK(!m_IsInitialized);
 
-		m_pRenderModule = new Render::RenderModule(*this);
-		if (!InitializeModule(m_pRenderModule))
+		m_RenderModule = new Render::RenderModule(*this);
+		if (!InitializeModule(m_RenderModule))
 		{
 			return false;
 		}
 
-		m_bIsInitialized = true;
-		return m_bIsInitialized;
+		m_IsInitialized = true;
+		return m_IsInitialized;
 	}
 
-	void ZenithEngine::Shutdown()
+	void Engine::Shutdown()
 	{
-		ZE_CHECK(m_bIsInitialized);
+		ZE_CHECK(m_IsInitialized);
 
-		m_pRenderModule->ShutdownModule();
-		delete m_pRenderModule;
+		m_RenderModule->ShutdownModule();
+		delete m_RenderModule;
 	}
 
-	void ZenithEngine::PostShutdown()
+	void Engine::PostShutdown()
 	{
-		ZE_CHECK(m_bIsPreInitialized);
+		ZE_CHECK(m_IsPreInitialized);
 
-		m_pCoreModule->ShutdownModule();
-		delete m_pCoreModule;
+		m_CoreModule->ShutdownModule();
+		delete m_CoreModule;
 
-		m_pLogModule->ShutdownModule();
-		delete m_pLogModule;
+		m_LogModule->ShutdownModule();
+		delete m_LogModule;
 	}
 
-	void ZenithEngine::Run()
+	void Engine::Run()
 	{
-		ZE_CHECK(m_bIsPreInitialized);
-		ZE_CHECK(m_bIsInitialized);
+		ZE_CHECK(m_IsPreInitialized);
+		ZE_CHECK(m_IsInitialized);
 
+		uint64_t frameCounter = 0ull;
+		double frameTimes[10] = {};
+		
 		while (!m_RequestExit)
 		{
-			BuildFrameTasks(m_TaskFlow);
+			{
+				Core::ScopedTimer<Core::ETimeUnit::MilliSecond> scopedTimer(frameTimes[frameCounter % 10]);
 
-			// TODO: this thread should work too.
-			m_TaskExecutor.run(m_TaskFlow).wait();
+				m_CoreModule->ProcessPlatformEvents();
+
+				if (m_RenderModule->GetMainRenderWindow()->IsRequestingClose())
+				{
+					m_RequestExit = true;
+					break;
+				}
+				
+				BuildFrameTasks(m_TaskFlow);
+
+				// TODO: this thread should work too.
+				m_TaskExecutor.run(m_TaskFlow).wait();
 			
-			ClearFrameTasks();
+				ClearFrameTasks();
+			}
+
+			if (frameCounter % 1000 == 1)
+			{
+				const double averageFrameTime = std::accumulate(frameTimes, frameTimes + std::min(frameCounter, 10ull), 0.0) / static_cast<double>(std::min(frameCounter, 10ull));
+				ZE_LOG_INFO("Current frame rate: {:.5} fps", 1000.f / averageFrameTime);
+			}
+			frameCounter++;
 		}
 	}
 
 	//-------------------------------------------------------------------------
 
-	void ZenithEngine::BuildFrameTasks(tf::Taskflow& taskFlow)
+	void Engine::BuildFrameTasks(tf::Taskflow& taskFlow)
 	{
 		ZE_CHECK(taskFlow.empty());
 
-		auto coreTask = taskFlow.composed_of(m_pCoreModule->BuildAndGetFrameTasks()).name(m_pCoreModule->GetModuleName());
-		auto logTask = taskFlow.composed_of(m_pLogModule->BuildAndGetFrameTasks()).name(m_pLogModule->GetModuleName());
+		auto coreTask = taskFlow.composed_of(m_CoreModule->BuildAndGetFrameTasks()).name(m_CoreModule->GetModuleName());
+		auto logTask = taskFlow.composed_of(m_LogModule->BuildAndGetFrameTasks()).name(m_LogModule->GetModuleName());
 
-		auto renderTask = taskFlow.composed_of(m_pRenderModule->BuildAndGetFrameTasks()).name(m_pRenderModule->GetModuleName());
+		auto renderTask = taskFlow.composed_of(m_RenderModule->BuildAndGetFrameTasks()).name(m_RenderModule->GetModuleName());
 	
 		// Build task dependencies
 
 		coreTask.precede(logTask);
 		logTask.succeed(renderTask);
+		coreTask.precede(renderTask);
 	}
 
-	void ZenithEngine::ClearFrameTasks()
+	void Engine::ClearFrameTasks()
 	{
-		m_pLogModule->ClearFrameTasks();
-		m_pCoreModule->ClearFrameTasks();
+		m_LogModule->ClearFrameTasks();
+		m_CoreModule->ClearFrameTasks();
 
-		m_pRenderModule->ClearFrameTasks();
+		m_RenderModule->ClearFrameTasks();
 
 		m_TaskFlow.clear();
 	}
 
-	bool ZenithEngine::PreInitializeModule(Core::IModule* pModule)
+	bool Engine::PreInitializeModule(Core::IModule* pModule)
 	{
 		if (!pModule->InitializeModule())
 		{
@@ -121,7 +146,7 @@ namespace ZE::Engine
 		return true;
 	}
 
-	bool ZenithEngine::InitializeModule(Core::IModule* pModule)
+	bool Engine::InitializeModule(Core::IModule* pModule)
 	{
 		if (!pModule->InitializeModule())
 		{

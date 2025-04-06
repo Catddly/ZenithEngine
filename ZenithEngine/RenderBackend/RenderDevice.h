@@ -3,6 +3,7 @@
 #include "IRenderDevice.h"
 #include "Core/Assertion.h"
 #include "RenderBackend/RenderResource.h"
+#include "RenderBackend/DeferReleaseQueue.h"
 
 #include <vulkan/vulkan_core.h>
 #include <vma/vk_mem_alloc.h>
@@ -10,18 +11,20 @@
 #include <vector>
 #include <limits>
 #include <memory>
+#include <functional>
 
 namespace ZE::Render { class RenderModule; }
 
 namespace ZE::RenderBackend
 {
 	class RenderCommandList;
+	class DescriptorCache;
 
 	class RenderDevice : public IRenderDevice
 	{
 	public:
 
-		static constexpr uint32_t kSwapBufferCount = 2;
+		static constexpr uint32_t kSwapBufferCount = 2u;
 		static constexpr uint64_t kInfiniteWaitTime = std::numeric_limits<uint64_t>::max();
 
 		struct Settings
@@ -75,40 +78,35 @@ namespace ZE::RenderBackend
 			VkPhysicalDeviceMemoryProperties	m_MemoryProps;
 		};
 
-		struct SubmittedCommandHandle
-		{
-			SubmittedCommandHandle(RenderDevice& renderDevice, VkFence fence)
-				: m_RenderDevice(renderDevice), m_Fence(fence)
-			{}
-			~SubmittedCommandHandle()
-			{
-				vkDestroyFence(m_RenderDevice.m_Device, m_Fence, nullptr);
-				m_RenderDevice.ReleaseSubmittedCommandList(m_Fence);
-				m_Fence = nullptr;
-			}
-
-			void WaitUntilFinished();
-
-		private:
-
-			RenderDevice&					m_RenderDevice;
-			VkFence							m_Fence = nullptr;
-		};
-
 		RenderDevice(Render::RenderModule& renderModule, const Settings& settings);
 
 		virtual bool Initialize() override;
 		virtual void Shutdown() override;
 
-		std::unique_ptr<RenderCommandList> GetImmediateCommandList();
+		std::shared_ptr<RenderCommandList> GetImmediateCommandList();
 
-		SubmittedCommandHandle SubmitCommandList(std::unique_ptr<RenderCommandList> cmdList);
+		void SubmitCommandList(RenderCommandList* pCmdList, const RenderWindow& renderWindow) const;
+		void SubmitCommandListAndWaitUntilFinish(RenderCommandList* pCmdList) const;
 
-		inline RenderBackend::Texture* GetSwapchainRenderTarget() const;
+		void DeferRelease(IDeferReleaseResource* pDeferReleaseResource);
+		void DeferRelease(const DeferReleaseLifetimeResource<Buffer>& deferReleaseResource);
+		void DeferRelease(const DeferReleaseLifetimeResource<Texture>& deferReleaseResource);
+
+		inline const std::shared_ptr<Texture>& GetSwapchainRenderTarget() const;
+
+		uint32_t GetFrameIndex() const { return m_FrameIndex; }
+		RenderCommandList* GetFrameCommandList() const { return m_FrameCommandLists[m_FrameIndex]; }
+		DescriptorCache* GetFrameDescriptorCache() const { return m_FrameDescriptorCaches[m_FrameIndex]; }
+		VkDevice GetNativeDevice() const { return m_Device; }
+
+		void WaitUntilIdle() const;
+		
+		void BeginFrame();
+		void EndFrame();
 
 	protected:
 
-		const PhysicalDevice& GetPhysicalDevice() const { ZE_CHECK(m_PickedPhysicalDeviceIndex != -1); return m_PhysicalDevices[m_PickedPhysicalDeviceIndex]; };
+		const PhysicalDevice& GetPhysicalDevice() const { ZE_CHECK(m_PickedPhysicalDeviceIndex != -1); return m_PhysicalDevices[m_PickedPhysicalDeviceIndex]; }
 	
 	private:
 
@@ -117,7 +115,7 @@ namespace ZE::RenderBackend
 		bool CreateWin32Surface();
 		bool PickPhysicalDevice();
 		bool CreateDevice();
-		bool CreateGlobalAllocator();
+		bool CreateGlobalMemoryAllocator();
 
 		bool CollectInstanceLayerProps(const std::vector<const char*>& requiredLayers);
 		bool CollectInstanceExtensionProps(const std::vector<const char*>& requiredExtensions);
@@ -125,48 +123,51 @@ namespace ZE::RenderBackend
 		bool CollectDeviceLayerProps(const std::vector<const char*>& requiredLayers);
 		bool CollectDeviceExtensionProps(const std::vector<const char*>& requiredExtensions);
 
-		void ReleaseSubmittedCommandList(VkFence fence);
-
 	private:
 
 		friend class RenderWindow;
 		friend class RenderCommandList;
 		friend class PipelineState;
 		friend class GraphicPipelineState;
-		friend class Shader;
 
 		friend class Buffer;
 		friend class Texture;
-
+		
 		friend struct SubmittedCommandHandle;
 
 	private:
 
-		Render::RenderModule&			m_RenderModule;
-		Settings						m_Settings;
+		std::reference_wrapper<Render::RenderModule>	m_RenderModule;
+		Settings										m_Settings;
 
-		VkInstance						m_Inst = nullptr;
-		InstanceProperties				m_InstProps;
+		VkInstance										m_Inst = nullptr;
+		InstanceProperties								m_InstProps;
 
-		VkDebugUtilsMessengerEXT		m_DebugUtilsMessenger = nullptr;
+		VkDebugUtilsMessengerEXT						m_DebugUtilsMessenger = nullptr;
 
-		VkSurfaceKHR					m_Surface = nullptr;
+		VkSurfaceKHR									m_Surface = nullptr;
 
-		std::vector<PhysicalDevice>		m_PhysicalDevices;
-		int32_t							m_PickedPhysicalDeviceIndex = -1;
+		std::vector<PhysicalDevice>						m_PhysicalDevices;
+		int32_t											m_PickedPhysicalDeviceIndex = -1;
 
-		VkDevice						m_Device = nullptr;
-		DeviceProperties				m_DeviceProps;
+		VkDevice										m_Device = nullptr;
+		DeviceProperties								m_DeviceProps;
+														
+		VmaAllocator									m_GlobalAllocator = nullptr;
+														
+		VkQueue											m_GraphicQueue = nullptr;
+		uint32_t										m_GraphicQueueFamilyIndex = std::numeric_limits<uint32_t>::max();
+		VkQueue											m_ComputeQueue = nullptr;
+		uint32_t										m_ComputeQueueFamilyIndex = std::numeric_limits<uint32_t>::max();
+		VkQueue											m_TransferQueue = nullptr;
+		uint32_t										m_TransferQueueFamilyIndex = std::numeric_limits<uint32_t>::max();
+			
+		uint32_t												m_FrameIndex = 0;
+		std::array<RenderCommandList*, kSwapBufferCount>		m_FrameCommandLists;
 
-		VmaAllocator					m_GlobalAllocator;
+		std::array<DescriptorCache*, kSwapBufferCount>			m_FrameDescriptorCaches;
+		std::array<DeferReleaseQueue, kSwapBufferCount>			m_FrameDeferReleaseQueues;
 
-		VkQueue							m_GraphicQueue = nullptr;
-		uint32_t						m_GraphicQueueFamilyIndex = std::numeric_limits<uint32_t>::max();
-		VkQueue							m_ComputeQueue = nullptr;
-		uint32_t						m_ComputeQueueFamilyIndex = std::numeric_limits<uint32_t>::max();
-		VkQueue							m_TransferQueue = nullptr;
-		uint32_t						m_TransferQueueFamilyIndex = std::numeric_limits<uint32_t>::max();
-
-		std::unordered_map<VkFence, std::unique_ptr<RenderCommandList>>			m_SubmittedCommands;
+		bool													m_HadBeganFrame = false;
 	};
 }

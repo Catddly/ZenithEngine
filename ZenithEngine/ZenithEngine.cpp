@@ -4,7 +4,7 @@
 
 namespace ZE
 {
-	void RunZenithEngine(Engine::ZenithEngine& engine)
+	void RunZenithEngine(Engine::Engine& engine)
 	{
 		engine.PreInitialize();
 		engine.Initialize();

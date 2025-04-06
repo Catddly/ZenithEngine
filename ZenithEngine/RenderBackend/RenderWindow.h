@@ -3,56 +3,59 @@
 #include "Platform/Window.h"
 #include "RenderDevice.h"
 #include "RenderBackend/RenderResource.h"
+#include "RenderBackend/RenderDeviceChild.h"
 
-#include "vulkan/vulkan_core.h"
+#include <vulkan/vulkan_core.h>
 
 #include <memory>
 #include <array>
-#include <limits>
 
 namespace ZE::RenderBackend
 {
 	class RenderCommandList;
 
-	class RenderWindow : public Platform::Window, public std::enable_shared_from_this<RenderWindow>
+	class RenderWindow : public Platform::Window, public std::enable_shared_from_this<RenderWindow>, public RenderDeviceChild
 	{
+		friend class RenderDevice;
+		
 	public:
 
 		RenderWindow(RenderDevice& renderDevice, const Settings& settings);
-		virtual ~RenderWindow();
+		virtual ~RenderWindow() override;
 
 		bool Initialize();
 		void Shutdown();
 
-		void BeginRender();
-		void Render(RenderCommandList& commandList);
-		void EndRender();
+		virtual void Resize(uint32_t width, uint32_t height) override;
+
+		void BeginFrame();
+		void EndFrame();
 
 		void Present();
 
-		inline Texture* GetSwapchainRenderTarget() const { return m_SwapchainTextures[m_FrameCounter % RenderDevice::kSwapBufferCount]; }
+		const std::shared_ptr<Texture>& GetFrameSwapchainRenderTarget() const { return m_SwapchainTextures[m_SwapchainPresentImageIndex]; }
+		const TextureDesc& GetSwapchainTextureDesc() const { return m_SwapchainBackbufferDesc; }
 
 	private:
 
 		bool CreateOrRecreateSwapchain();
 
 	private:
+		
+		VkSwapchainKHR	m_Swapchain = nullptr;
 
-		RenderDevice&												m_RenderDevice;
+		TextureDesc		m_SwapchainBackbufferDesc = {"swapchain render target"};
 
-		VkSwapchainKHR												m_Swapchain = nullptr;
+		std::array<VkSemaphore, RenderDevice::kSwapBufferCount>					m_PresentCompleteSemaphores = {};
+		std::array<VkSemaphore, RenderDevice::kSwapBufferCount>					m_RenderCompleteSemaphores = {};
 
-		TextureDesc													m_SwapchainBackbufferDesc;
+		std::array<VkImage, RenderDevice::kSwapBufferCount>						m_Images = {};
+		std::array<VkFence, RenderDevice::kSwapBufferCount>						m_Fences = {};
 
-		std::array<VkSemaphore, RenderDevice::kSwapBufferCount>		m_PresentCompleteSemaphoreArray = {};
-		std::array<VkSemaphore, RenderDevice::kSwapBufferCount>		m_RenderCompleteSemaphoreArray = {};
+		uint32_t																m_SwapchainPresentImageIndex = 0u;
 
-		std::array<VkImage, RenderDevice::kSwapBufferCount>			m_ImageArray = {};
+		std::array<std::shared_ptr<Texture>, RenderDevice::kSwapBufferCount>	m_SwapchainTextures = {};
 
-		std::array<VkFence, RenderDevice::kSwapBufferCount>			m_FenceArray = {};
-
-		uint64_t													m_FrameCounter = 0;
-
-		std::array<Texture*, RenderDevice::kSwapBufferCount>		m_SwapchainTextures = {};
+		bool																	m_HadBeganRendering = false;
 	};
 }

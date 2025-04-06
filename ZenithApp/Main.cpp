@@ -5,6 +5,6 @@
 //int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 int main()
 {
-	ZE::RunEngineScoped ScopedEngine;
-	ScopedEngine.Run();
+	ZE::RunEngineScoped scopedEngine;
+	scopedEngine.Run();
 }

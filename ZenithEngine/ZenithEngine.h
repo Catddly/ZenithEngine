@@ -5,7 +5,7 @@
 
 namespace ZE
 {
-	ENGINE_API void RunZenithEngine(Engine::ZenithEngine& engine);
+	ENGINE_API void RunZenithEngine(Engine::Engine& engine);
 
 	class ENGINE_API RunEngineScoped
 	{
@@ -18,6 +18,6 @@ namespace ZE
 
 	private:
 
-		Engine::ZenithEngine				m_Engine;
+		Engine::Engine				m_Engine;
 	};
 }

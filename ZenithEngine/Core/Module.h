@@ -2,11 +2,11 @@
 
 #include "ModuleDefines.h"
 
-#include "taskflow/taskflow.hpp"
+#include <taskflow/taskflow.hpp>
 
 #include <string>
 
-namespace ZE::Engine { class ZenithEngine; }
+namespace ZE::Engine { class Engine; }
 
 namespace ZE::Core
 {
@@ -20,13 +20,13 @@ namespace ZE::Core
 	{
 	public:
 
-		IModule(Engine::ZenithEngine& engine, ModuleInitializePhase initPhase, const std::string& moduleName = "Unknown")
+		IModule(Engine::Engine& engine, ModuleInitializePhase initPhase, const std::string& moduleName = "Unknown")
 			: m_Engine(engine), m_InitPhase(initPhase), m_ModuleName(moduleName), m_TaskFlow(moduleName)
 		{}
 		virtual ~IModule() = default;
 
-		inline std::string GetModuleName() const { return m_ModuleName; }
-		inline ModuleInitializePhase GetInitializePhase() const { return m_InitPhase; }
+		std::string GetModuleName() const { return m_ModuleName; }
+		ModuleInitializePhase GetInitializePhase() const { return m_InitPhase; }
 
 		virtual bool InitializeModule() = 0;
 		virtual void ShutdownModule() = 0;
@@ -42,7 +42,7 @@ namespace ZE::Core
 			
 	public:
 
-		Engine::ZenithEngine&				m_Engine;
+		Engine::Engine&				m_Engine;
 
 	private:
 

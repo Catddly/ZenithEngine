@@ -17,6 +17,6 @@ namespace ZE::Platform
 
 	private:
 
-		bool							m_bIsInitialized = false;
+		bool							m_IsInitialized = false;
 	};
 }
