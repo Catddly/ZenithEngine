@@ -27,5 +27,7 @@ target("ZenithEngine")
     -- Debug
     if is_mode("debug") then
         add_defines("ZENITH_ENABLE_RUNTIME_CHECK=1")
+    else
+        add_defines("ZENITH_ENABLE_RUNTIME_CHECK=0")
     end
 target_end()

@@ -14,7 +14,7 @@ namespace ZE::Core
 	public:
 
 		CoreModule(Engine::Engine& engine)
-			: IModule(engine, ModuleInitializePhase::PreInit, "Core")
+			: IModule(engine, EModuleInitializePhase::PreInit, "Core")
 		{}
 
 		virtual bool InitializeModule() override;

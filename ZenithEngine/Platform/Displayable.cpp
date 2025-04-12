@@ -12,11 +12,11 @@ namespace ZE::Platform
 		ZE_LOG_ERROR("GLFW error [{}]: {}", error, pDescription);
 	}
 
-	bool Displayble::Initialize()
+	bool Displayable::Initialize()
 	{
 		ZE_CHECK(!m_IsInitialized);
 
-		int result = glfwInit();
+		const int result = glfwInit();
 		m_IsInitialized = result == GLFW_TRUE;
 
 		if (!glfwVulkanSupported())
@@ -34,7 +34,7 @@ namespace ZE::Platform
 		return m_IsInitialized;
 	}
 
-	void Displayble::Shutdown()
+	void Displayable::Shutdown()
 	{
 		if (m_IsInitialized)
 		{
@@ -43,7 +43,7 @@ namespace ZE::Platform
 		}
 	}
 
-	void Displayble::ProcessPlatformEvents()
+	void Displayable::ProcessPlatformEvents()
 	{
 		glfwPollEvents();
 	}

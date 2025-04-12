@@ -1,6 +1,6 @@
 #include "ZenithEngine.h"
 
-#include <assert.h>
+#include "Core/Assertion.h" 
 
 namespace ZE
 {
@@ -19,8 +19,8 @@ namespace ZE
 
 	RunEngineScoped::RunEngineScoped()
 	{
-		assert(m_Engine.PreInitialize());
-		assert(m_Engine.Initialize());
+		ZE_EXEC_CHECK(m_Engine.PreInitialize());
+		ZE_EXEC_CHECK(m_Engine.Initialize());
 	}
 
 	RunEngineScoped::~RunEngineScoped()

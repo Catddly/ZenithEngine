@@ -4,12 +4,10 @@
 
 namespace ZE::Platform
 {
-	class Displayble : public IDisplayable
+	class Displayable : public IDisplayable
 	{
 	public:
-
-		virtual ~Displayble() = default;
-
+		
 		virtual bool Initialize() override;
 		virtual void Shutdown() override;
 

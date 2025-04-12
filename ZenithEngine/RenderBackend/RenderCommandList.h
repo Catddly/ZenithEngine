@@ -53,6 +53,8 @@ namespace ZE::RenderBackend
 	GlobalMemoryBarrierTransition GetMemoryBarrierTransition(const GlobalMemoryBarrier& globalBarrier);
 	BufferBarrierTransition GetBufferBarrierTransition(const BufferBarrier& bufferBarrier);
 	TextureBarrierTransition GetTextureBarrierTransition(const TextureBarrier& textureBarrier);
+
+	VkImageLayout GetTextureLayout(ERenderResourceState state);
 	
 	struct DynamicRenderingInfo
 	{

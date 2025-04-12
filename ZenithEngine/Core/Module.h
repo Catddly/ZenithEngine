@@ -5,12 +5,13 @@
 #include <taskflow/taskflow.hpp>
 
 #include <string>
+#include <type_traits>
 
 namespace ZE::Engine { class Engine; }
 
 namespace ZE::Core
 {
-	enum class ModuleInitializePhase
+	enum class EModuleInitializePhase : uint8_t
 	{
 		PreInit = 0,
 		Init
@@ -20,13 +21,13 @@ namespace ZE::Core
 	{
 	public:
 
-		IModule(Engine::Engine& engine, ModuleInitializePhase initPhase, const std::string& moduleName = "Unknown")
-			: m_Engine(engine), m_InitPhase(initPhase), m_ModuleName(moduleName), m_TaskFlow(moduleName)
+		IModule(Engine::Engine& engine, EModuleInitializePhase initPhase, const std::string& moduleName = "Unknown")
+			: m_Engine(engine), m_TaskFlow(moduleName), m_InitPhase(initPhase), m_ModuleName(moduleName)
 		{}
 		virtual ~IModule() = default;
 
 		std::string GetModuleName() const { return m_ModuleName; }
-		ModuleInitializePhase GetInitializePhase() const { return m_InitPhase; }
+		EModuleInitializePhase GetInitializePhase() const { return m_InitPhase; }
 
 		virtual bool InitializeModule() = 0;
 		virtual void ShutdownModule() = 0;
@@ -42,13 +43,13 @@ namespace ZE::Core
 			
 	public:
 
-		Engine::Engine&				m_Engine;
+		std::reference_wrapper<Engine::Engine>			m_Engine;
 
 	private:
 
-		tf::Taskflow						m_TaskFlow;
+		tf::Taskflow									m_TaskFlow;
 
-		ModuleInitializePhase				m_InitPhase;
-		std::string							m_ModuleName;
+		EModuleInitializePhase							m_InitPhase;
+		std::string										m_ModuleName;
 	};
 }

@@ -19,13 +19,13 @@ namespace ZE::Engine
 		ZE_CHECK(!m_IsPreInitialized);
 
 		m_LogModule = new Log::LogModule(*this);
-		if (!PreInitializeModule(m_LogModule))
+		if (!InitializeModule(m_LogModule))
 		{
 			return false;
 		}
 
 		m_CoreModule = new Core::CoreModule(*this);
-		if (!PreInitializeModule(m_CoreModule))
+		if (!InitializeModule(m_CoreModule))
 		{
 			return false;
 		}
@@ -133,19 +133,6 @@ namespace ZE::Engine
 		m_TaskFlow.clear();
 	}
 
-	bool Engine::PreInitializeModule(Core::IModule* pModule)
-	{
-		if (!pModule->InitializeModule())
-		{
-			ZE_LOG_FATAL("Zenith engine failed to pre-initialized module [{}].", pModule->GetModuleName());
-			pModule->ShutdownModule();
-			return false;
-		}
-
-		ZE_LOG_INFO("Module [{}] is initialized.", pModule->GetModuleName());
-		return true;
-	}
-
 	bool Engine::InitializeModule(Core::IModule* pModule)
 	{
 		if (!pModule->InitializeModule())
@@ -154,7 +141,7 @@ namespace ZE::Engine
 			pModule->ShutdownModule();
 			return false;
 		}
-
+		
 		ZE_LOG_INFO("Module [{}] is initialized.", pModule->GetModuleName());
 		return true;
 	}

@@ -43,7 +43,6 @@ namespace ZE::Engine
 		*/
 		void ClearFrameTasks();
 
-		static bool PreInitializeModule(Core::IModule* pModule);
 		static bool InitializeModule(Core::IModule* pModule);
 
 	protected:

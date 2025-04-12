@@ -160,20 +160,20 @@ namespace ZE::RenderBackend
 					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, .m_AccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT, .m_ImageLayout = VK_IMAGE_LAYOUT_GENERAL };
 
                 case ERenderResourceState::RayTracingShaderReadSampledImageOrUniformTexelBuffer:
-					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, .m_AccessMask = VK_ACCESS_SHADER_READ_BIT, .m_ImageLayout =VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, .m_AccessMask = VK_ACCESS_SHADER_READ_BIT, .m_ImageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
                 case ERenderResourceState::RayTracingShaderReadColorInputAttachment:
-					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, .m_AccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT, .m_ImageLayout =VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, .m_AccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT, .m_ImageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
                 case ERenderResourceState::RayTracingShaderReadDepthStencilInputAttachment:
-					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, .m_AccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT, .m_ImageLayout =VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL };
+					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, .m_AccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT, .m_ImageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL };
                 case ERenderResourceState::RayTracingShaderReadAccelerationStructure:
-					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, .m_AccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR, .m_ImageLayout =VK_IMAGE_LAYOUT_UNDEFINED };
+					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, .m_AccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR, .m_ImageLayout = VK_IMAGE_LAYOUT_UNDEFINED };
                 case ERenderResourceState::RayTracingShaderReadOther:
-					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, .m_AccessMask = VK_ACCESS_SHADER_READ_BIT, .m_ImageLayout =VK_IMAGE_LAYOUT_GENERAL };
+					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, .m_AccessMask = VK_ACCESS_SHADER_READ_BIT, .m_ImageLayout = VK_IMAGE_LAYOUT_GENERAL };
 
                 case ERenderResourceState::AccelerationStructureBuildWrite:
-					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, .m_AccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, .m_ImageLayout =VK_IMAGE_LAYOUT_UNDEFINED };
+					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, .m_AccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, .m_ImageLayout = VK_IMAGE_LAYOUT_UNDEFINED };
                 case ERenderResourceState::AccelerationStructureBuildRead:
-					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, .m_AccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR, .m_ImageLayout =VK_IMAGE_LAYOUT_UNDEFINED };
+					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, .m_AccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR, .m_ImageLayout = VK_IMAGE_LAYOUT_UNDEFINED };
                 case ERenderResourceState::AccelerationStructureBufferWrite:
 					return PipelineResourceAccessInfo{ .m_StageMask = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, .m_AccessMask = VK_ACCESS_TRANSFER_WRITE_BIT, .m_ImageLayout = VK_IMAGE_LAYOUT_UNDEFINED };
 
@@ -444,6 +444,150 @@ namespace ZE::RenderBackend
         return barrier;
 	}
 	
+	VkImageLayout GetTextureLayout(ERenderResourceState state)
+	{
+		switch (state)
+		{
+            case ERenderResourceState::Undefined:
+            	return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::IndirectBuffer:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::VertexBuffer:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::IndexBuffer:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+
+            case ERenderResourceState::VertexShaderReadUniformBuffer:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::VertexShaderReadSampledImageOrUniformTexelBuffer:
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            case ERenderResourceState::VertexShaderReadOther:
+				return VK_IMAGE_LAYOUT_GENERAL;
+
+            case ERenderResourceState::TessellationControlShaderReadUniformBuffer:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::TessellationControlShaderReadSampledImageOrUniformTexelBuffer:
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            case ERenderResourceState::TessellationControlShaderReadOther:
+				return VK_IMAGE_LAYOUT_GENERAL;
+
+            case ERenderResourceState::TessellationEvaluationShaderReadUniformBuffer:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::TessellationEvaluationShaderReadSampledImageOrUniformTexelBuffer:
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            case ERenderResourceState::TessellationEvaluationShaderReadOther:
+				return VK_IMAGE_LAYOUT_GENERAL;
+
+            case ERenderResourceState::GeometryShaderReadUniformBuffer:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::GeometryShaderReadSampledImageOrUniformTexelBuffer:
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            case ERenderResourceState::GeometryShaderReadOther:
+				return VK_IMAGE_LAYOUT_GENERAL;
+
+            case ERenderResourceState::FragmentShaderReadUniformBuffer:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::FragmentShaderReadSampledImageOrUniformTexelBuffer:
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+               // QA
+            case ERenderResourceState::FragmentShaderReadColorInputAttachment:
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+               // QA
+            case ERenderResourceState::FragmentShaderReadDepthStencilInputAttachment:
+				return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+            case ERenderResourceState::FragmentShaderReadOther:
+				return VK_IMAGE_LAYOUT_GENERAL;
+
+            case ERenderResourceState::ColorAttachmentRead:
+				return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            case ERenderResourceState::DepthStencilAttachmentRead:
+				return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+            case ERenderResourceState::ComputeShaderReadUniformBuffer:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::ComputeShaderReadSampledImageOrUniformTexelBuffer:
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            case ERenderResourceState::ComputeShaderReadOther:
+				return VK_IMAGE_LAYOUT_GENERAL;
+
+            case ERenderResourceState::AnyShaderReadUniformBuffer:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::AnyShaderReadUniformBufferOrVertexBuffer:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::AnyShaderReadSampledImageOrUniformTexelBuffer:
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            case ERenderResourceState::AnyShaderReadOther:
+				return VK_IMAGE_LAYOUT_GENERAL;
+
+            case ERenderResourceState::TransferRead:
+				return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            case ERenderResourceState::HostRead:
+				return VK_IMAGE_LAYOUT_GENERAL;
+            case ERenderResourceState::Present:
+				return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+            case ERenderResourceState::VertexShaderWrite:
+				return VK_IMAGE_LAYOUT_GENERAL;
+            case ERenderResourceState::TessellationControlShaderWrite:
+				return VK_IMAGE_LAYOUT_GENERAL;
+            case ERenderResourceState::TessellationEvaluationShaderWrite:
+				return VK_IMAGE_LAYOUT_GENERAL;
+            case ERenderResourceState::GeometryShaderWrite:
+				return VK_IMAGE_LAYOUT_GENERAL;
+            case ERenderResourceState::FragmentShaderWrite:
+				return VK_IMAGE_LAYOUT_GENERAL;
+
+            case ERenderResourceState::ColorAttachmentWrite:
+				return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            case ERenderResourceState::DepthStencilAttachmentWrite:
+				return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            case ERenderResourceState::DepthAttachmentWriteStencilReadOnly:
+				return VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL;
+            case ERenderResourceState::StencilAttachmentWriteDepthReadOnly:
+				return VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL;
+
+            case ERenderResourceState::ComputeShaderWrite:
+				return VK_IMAGE_LAYOUT_GENERAL;
+
+            case ERenderResourceState::AnyShaderWrite:
+				return VK_IMAGE_LAYOUT_GENERAL;
+            case ERenderResourceState::TransferWrite:
+				return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            case ERenderResourceState::HostWrite:
+				return VK_IMAGE_LAYOUT_GENERAL;
+
+            case ERenderResourceState::ColorAttachmentReadWrite:
+				return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            case ERenderResourceState::General:
+				return VK_IMAGE_LAYOUT_GENERAL;
+
+            case ERenderResourceState::RayTracingShaderReadSampledImageOrUniformTexelBuffer:
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            case ERenderResourceState::RayTracingShaderReadColorInputAttachment:
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            case ERenderResourceState::RayTracingShaderReadDepthStencilInputAttachment:
+				return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+            case ERenderResourceState::RayTracingShaderReadAccelerationStructure:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::RayTracingShaderReadOther:
+				return VK_IMAGE_LAYOUT_GENERAL;
+
+            case ERenderResourceState::AccelerationStructureBuildWrite:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::AccelerationStructureBuildRead:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+            case ERenderResourceState::AccelerationStructureBufferWrite:
+				return VK_IMAGE_LAYOUT_UNDEFINED;
+
+	        default:
+	        {
+	        	ZE_CHECK(false);
+	        	return {};
+	        }
+		}
+		return {};
+	}
+
 	RenderCommandList::RenderCommandList(RenderDevice& renderDevice)
 	{
 		SetRenderDevice(&renderDevice);

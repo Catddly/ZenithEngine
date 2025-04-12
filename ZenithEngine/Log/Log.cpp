@@ -38,16 +38,16 @@ namespace ZE::Log
 	}
 
 	void LogModule::BuildFrameTasks(tf::Taskflow& taskFlow)
-{
-		auto [condSwitch, cond, trueTask, falseTask] = taskFlow.emplace(
-			[this]() { m_TestBranch = !m_TestBranch; },
-			[this]() { return m_TestBranch; },
-			&TestStaticLoggerTask,
-			[this]() { TestLoggerTask(); }
-		);
-
-		condSwitch.precede(cond);
-		cond.precede(falseTask, trueTask);
+	{
+		// auto [condSwitch, cond, trueTask, falseTask] = taskFlow.emplace(
+		// 	[this]() { m_TestBranch = !m_TestBranch; },
+		// 	[this]() { return m_TestBranch; },
+		// 	&TestStaticLoggerTask,
+		// 	[this]() { TestLoggerTask(); }
+		// );
+		//
+		// condSwitch.precede(cond);
+		// cond.precede(falseTask, trueTask);
 	}
 
 	void LogModule::TestStaticLoggerTask()

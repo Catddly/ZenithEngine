@@ -7,6 +7,7 @@
 #include "RenderBackend/DescriptorCache.h"
 #include "RenderBackend/PipelineStateCache.h"
 #include "RenderBackend/VulkanHelper.h"
+#include "RenderBackend/RenderWindow.h"
 
 #include <vulkan/vulkan_core.h>
 
@@ -16,8 +17,6 @@
 #include <ranges>
 #include <algorithm>
 #include <forward_list>
-
-#include "RenderBackend/RenderWindow.h"
 
 namespace ZE::Render
 {
@@ -102,16 +101,17 @@ namespace ZE::Render
 			}
 			else if (resource.IsTypeOf<GraphResourceType::Texture>())
 			{
-				// TODO
-				// VkDescriptorImageInfo imageInfo;
-				// imageInfo.imageView = resource.GetResourceStorage<GraphResourceType::Buffer>()->GetNativeHandle();
-				// imageInfo.imageLayout = 0;
-				// imageInfo.sampler = VK_WHOLE_SIZE;
-				// m_TemporaryBufferInfos.push_front(bufferInfo);
-				//
-				// writeSet.pBufferInfo = &m_TemporaryBufferInfos.front();
-				// m_WriteDescriptorSets.resize(location.GetSetIndex());
-				// m_WriteDescriptorSets[location.GetSetIndex()].emplace_back(writeSet);
+				auto& resourceStorage = resource.GetResourceStorage<GraphResourceType::Texture>();
+				VkDescriptorImageInfo imageInfo;
+				imageInfo.imageView = resourceStorage->GetOrCreateView();
+				imageInfo.imageLayout = GetTextureLayout(m_RenderGraph.get().GetResourceState(handle));
+				// TODO: static sampler
+				imageInfo.sampler = nullptr;
+				m_TemporaryImageInfos.push_front(imageInfo);
+				
+				writeSet.pImageInfo = &m_TemporaryImageInfos.front();
+				m_WriteDescriptorSets.resize(location.GetSetIndex() + 1);
+				m_WriteDescriptorSets[location.GetSetIndex()].emplace_back(writeSet);
 			}
 			else
 			{
@@ -148,18 +148,6 @@ namespace ZE::Render
 		m_RenderCommandList->CmdDrawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 	}
 
-	// GraphResourceHandle GraphNode::Read(const GraphResource& resource, RenderBackend::ERenderResourceState access)
- //    {
-	// 	ZE_CHECK(m_RenderGraph);
- //
-	// 	GraphResourceHandle handle = RenderGraph::AllocateResourceHandle(resource);
-	// 	handle.m_OwnedGraphNode = this;
-	// 	m_InputResources.push_back(handle);
-	// 	m_InputResourceStates.push_back(access);
- //
-	// 	return handle;
- //    }
-
     void GraphNode::Read(const GraphResourceHandle& handle, RenderBackend::ERenderResourceState access)
     {
 		ZE_CHECK(m_RenderGraph);
@@ -167,17 +155,6 @@ namespace ZE::Render
 		m_InputResources.push_back(handle);
 		m_InputResourceStates.push_back(access);
     }
-
-  //   GraphResourceHandle GraphNode::Write(GraphResource& resource, RenderBackend::ERenderResourceState access)
-  //   {
-		// ZE_CHECK(m_RenderGraph);
-  //
-		// GraphResourceHandle handle = RenderGraph::AllocateResourceHandle(resource);
-  //       m_OutputResources.push_back(handle);
-		// m_OutputResourceStates.push_back(access);
-  //
-  //       return handle;
-  //   }
 	
     void GraphNode::Write(const GraphResourceHandle& handle, RenderBackend::ERenderResourceState access)
 	{
@@ -280,7 +257,6 @@ namespace ZE::Render
 		
 		GraphExecutionContext context(*this);
 		auto* pFrameCmdList = m_RenderDevice.get().GetFrameCommandList();
-		context.SetCommandList(*pFrameCmdList);
 		
 		pFrameCmdList->BeginRecord();
 		for (const auto* pNode : m_ExecutionNodes)
@@ -319,14 +295,13 @@ namespace ZE::Render
 			{
 				// Create pipeline state here? may be far more ahead
 				RenderBackend::GraphicPipelineStateCreateDesc graphicPSOCreateDesc;
-				auto currentRenderTargetIndex = 0u;
 				std::vector<RenderBackend::Texture*> renderTargetPtrs;
 				std::vector<RenderBackend::RenderPassRenderTargetBinding> renderTargetBindings;
 
 				for (auto i = 0u; i < pNode->m_ColorAttachments.size(); ++i)
 				{
 					const auto& resource = GetResource(pNode->m_ColorAttachments[i]);
-					ZE_CHECK(!resource.IsTypeOf<GraphResourceType::Buffer>());
+					ZE_CHECK(resource.IsTypeOf<GraphResourceType::Texture>());
 					
 					graphicPSOCreateDesc.AddColorOutput(resource.GetDesc<GraphResourceType::Texture>().m_Format);
 
@@ -337,6 +312,7 @@ namespace ZE::Render
 				if (pNode->m_DepthStencilAttachment.has_value())
 				{
 					const auto& resource = GetResource(*pNode->m_DepthStencilAttachment);
+					ZE_CHECK(resource.IsTypeOf<GraphResourceType::Texture>());
 					graphicPSOCreateDesc.SetDepthStencilOutput(resource.GetDesc<GraphResourceType::Texture>().m_Format);
 
 					renderTargetPtrs.push_back(resource.GetResourceStorage<GraphResourceType::Texture>().get());
@@ -347,20 +323,24 @@ namespace ZE::Render
 				graphicPSOCreateDesc.SetPixelShaderOptional(pNode->m_PixelShader);
 
 				auto pPipelineState = pipelineStateCache.CreateGraphicPipelineState(graphicPSOCreateDesc);
-				auto& sets = m_RenderDevice.get().GetFrameDescriptorCache()->FindOrAdd(pPipelineState.get());
+				if (pPipelineState)
+				{
+					auto& sets = m_RenderDevice.get().GetFrameDescriptorCache()->FindOrAdd(pPipelineState.get());
 				
-				context.SetDescriptorSets(sets);
-				context.SetPipeline(pPipelineState.get(), VK_PIPELINE_BIND_POINT_GRAPHICS);
-				context.SetRenderTargets(&renderTargetPtrs, &renderTargetBindings);
+					context.SetDescriptorSets(sets);
+					context.SetPipeline(pPipelineState.get(), VK_PIPELINE_BIND_POINT_GRAPHICS);
+					context.SetRenderTargets(&renderTargetPtrs, &renderTargetBindings);
+					context.SetCommandList(*pFrameCmdList);
 				
-				pNode->m_Job(context);
+					pNode->m_Job(context);
 
-				pFrameCmdList->CmdEndDynamicRendering();
+					pFrameCmdList->CmdEndDynamicRendering();	
+				}
 			}
 		}
 		pFrameCmdList->EndRecord();
 
-		m_RenderDevice.get().SubmitCommandList(pFrameCmdList, renderWindow);	
+		m_RenderDevice.get().SubmitCommandList(pFrameCmdList, renderWindow);
     }
 
     void RenderGraph::Build()
@@ -421,7 +401,7 @@ namespace ZE::Render
             return false;
 		};
 
-        ZE_CHECK(fMarkAsVisited(this));
+		ZE_EXEC_CHECK(fMarkAsVisited(this));
 
         // topology sort
         while (!inspectingNodes.empty())

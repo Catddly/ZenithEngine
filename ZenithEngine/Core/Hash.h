@@ -6,20 +6,20 @@
 namespace ZE::Core
 {
 	template <typename T>
-	concept StdHashable = requires
+	concept Hashable = requires
 	{
 		requires std::hash<T>{}();
 	};
 	
-	template <typename StdHashable>
-	uint64_t Hash(const StdHashable& value)
+	template <typename Hashable>
+	uint64_t Hash(const Hashable& value)
 	{
-		return std::hash<StdHashable>{}(value);
+		return std::hash<Hashable>{}(value);
 	}
 
-	template <typename StdHashable>
-	uint64_t Hash(const uint64_t seed, const StdHashable& value)
+	template <typename Hashable>
+	uint64_t Hash(const uint64_t seed, const Hashable& value)
 	{
-		return seed ^ std::hash<StdHashable>{}(value);
+		return seed ^ std::hash<Hashable>{}(value);
 	}
 }

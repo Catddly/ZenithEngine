@@ -13,6 +13,11 @@ namespace ZE
 
 		RunEngineScoped();
 		~RunEngineScoped();
+		
+		RunEngineScoped(const RunEngineScoped&) = delete;
+		RunEngineScoped& operator=(const RunEngineScoped&) = delete;
+		RunEngineScoped(RunEngineScoped&&) = delete;
+		RunEngineScoped& operator=(RunEngineScoped&&) = delete;
 
 		void Run();
 

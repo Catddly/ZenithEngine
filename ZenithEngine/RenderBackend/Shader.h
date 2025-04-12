@@ -43,8 +43,6 @@ namespace ZE::RenderBackend
 
 		struct Slot
 		{
-			//uint32_t				m_SetIndex = std::numeric_limits<uint32_t>::max();
-			//uint32_t				m_BindingIndex = std::numeric_limits<uint32_t>::max();
 			EShaderBindingResourceType	m_ResourceType = EShaderBindingResourceType::Unknown;
 		};
 

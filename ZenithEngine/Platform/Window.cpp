@@ -7,10 +7,13 @@
 
 namespace ZE::Platform
 {
-	static void FramebufferResizeCallback(GLFWwindow* window, int width, int height)
+	namespace
 	{
-		Window* pWindow = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-		pWindow->Resize(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+		void FramebufferResizeCallback(GLFWwindow* window, int width, int height)
+		{
+			auto* pWindow = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+			pWindow->Resize(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+		}
 	}
 	
 	Window::Window(const Settings& settings)

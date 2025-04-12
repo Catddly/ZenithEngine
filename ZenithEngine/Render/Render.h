@@ -14,13 +14,12 @@ namespace ZE::RenderBackend
 
 namespace ZE::Render
 {
-
 	class RenderModule : public Core::IModule
 	{
 	public:
 
 		RenderModule(Engine::Engine& engine)
-			: Core::IModule(engine, Core::ModuleInitializePhase::Init, "Render")
+			: Core::IModule(engine, Core::EModuleInitializePhase::Init, "Render")
 		{}
 
 		virtual bool InitializeModule() override;
@@ -31,8 +30,6 @@ namespace ZE::Render
 	public:
 
 		std::shared_ptr<RenderBackend::RenderWindow> GetMainRenderWindow() const { return m_MainRenderWindow; }
-
-		//inline std::shared_ptr<RenderBackend::RenderWindow> CreateSecondaryRenderWindow();
 	
 	private:
 
@@ -46,9 +43,5 @@ namespace ZE::Render
 		std::shared_ptr<RenderBackend::RenderWindow>	m_MainRenderWindow = nullptr;
 
 		Renderer::TriangleRenderer						m_TriangleRenderer;
-
-		// Temp
-		// std::shared_ptr<RenderBackend::VertexShader>	m_TriangleVS = nullptr;
-		// std::shared_ptr<RenderBackend::PixelShader>		m_TrianglePS = nullptr;
 	};
 }

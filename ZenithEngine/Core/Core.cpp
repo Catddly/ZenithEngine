@@ -11,7 +11,7 @@ namespace ZE::Core
 {
     bool CoreModule::InitializeModule()
     {
-		m_DisplayDevice = new Platform::Displayble;
+		m_DisplayDevice = new Platform::Displayable;
 		if (!m_DisplayDevice->Initialize())
 		{
 			m_DisplayDevice->Shutdown();
@@ -36,27 +36,27 @@ namespace ZE::Core
 
 	void CoreModule::BuildFrameTasks(tf::Taskflow& taskFlow)
 	{
-		tf::Task processPlatformEvent = taskFlow.emplace([this]()
-		{
-		});
+		// tf::Task processPlatformEvent = taskFlow.emplace([this]()
+		// {
+		// });
+		//
+		// tf::Task secondTask = taskFlow.emplace([]()
+		// {
+		// 	// std::this_thread::sleep_for(std::chrono::seconds(1));
+		// 	// ZE_LOG_INFO("Init from second tasks!");
+		// });
+		//
+		// tf::Task mathTask = taskFlow.placeholder();
+		// mathTask.data(&m_MathData).work([mathTask]() {
+		// 	MathCalculationData* pData = static_cast<MathCalculationData*>(mathTask.data());
+		// 	ZE_CHECK(pData);
+		//
+		// 	// ZE_LOG_INFO("Calculating Math...");
+		//
+		// 	pData->accumMat = glm::scale(pData->accumMat, pData->scale);
+		// });
 
-		tf::Task secondTask = taskFlow.emplace([]()
-		{
-			// std::this_thread::sleep_for(std::chrono::seconds(1));
-			// ZE_LOG_INFO("Init from second tasks!");
-		});
-
-		tf::Task mathTask = taskFlow.placeholder();
-		mathTask.data(&m_MathData).work([mathTask]() {
-			MathCalculationData* pData = static_cast<MathCalculationData*>(mathTask.data());
-			ZE_CHECK(pData);
-
-			// ZE_LOG_INFO("Calculating Math...");
-
-			pData->accumMat = glm::scale(pData->accumMat, pData->scale);
-		});
-
-		processPlatformEvent.precede(secondTask, mathTask);
+		// processPlatformEvent.precede(secondTask, mathTask);
 	}
 	
 	void CoreModule::ProcessPlatformEvents()
