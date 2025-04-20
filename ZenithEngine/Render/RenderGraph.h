@@ -45,7 +45,6 @@ namespace ZE::Render
 	};
 
 	class GraphExecutionContext;
-	class RenderGraph;
 	
 	class GraphNode
 	{
@@ -63,10 +62,10 @@ namespace ZE::Render
 			: m_NodeName(std::move(nodeName)), m_RenderGraph(pRenderGraph)
 		{}
 
-		// void Read(const GraphResource& resource, RenderBackend::ERenderResourceState access);
-		void Read(const GraphResourceHandle& handle, RenderBackend::ERenderResourceState access);
+		GraphNode(const GraphNode&) = delete;
+		bool operator==(const GraphNode&) const = delete;
 
-		// void Write(GraphResource& resource, RenderBackend::ERenderResourceState access);
+		void Read(const GraphResourceHandle& handle, RenderBackend::ERenderResourceState access);
 		void Write(const GraphResourceHandle& handle, RenderBackend::ERenderResourceState access);
 
 		GraphNode& AddColorRenderTarget(const GraphResourceHandle& handle,
@@ -144,7 +143,7 @@ namespace ZE::Render
 		std::vector<Chunk*>			m_Chunks;
 		std::vector<uint32_t>		m_ChunkLeftOverMemorySizeInByte;
 	};
-	
+
 	template <typename T>
 	T* RenderGraphNodeMemoryAllocator::Allocate()
 	{
@@ -153,21 +152,20 @@ namespace ZE::Render
 
 		const uint32_t allocateSize = sizeof(T);
 		const uint32_t allocateSizeAligned = Math::AlignTo(allocateSize, kChunkMemoryAlignment);
-		
+			
 		uint32_t chunkIndex = 0;
 		for (auto& leftOverMemory : m_ChunkLeftOverMemorySizeInByte)
 		{
 			// Have enough memory to allocate within this chunk
 			if (leftOverMemory >= allocateSizeAligned)
 			{
-				const uint32_t chunkMemoryAddressOffset = kChunkMemorySizeInByte - leftOverMemory;
+				const uint32_t chunkMemoryAddressOffset = Math::AlignTo(static_cast<std::size_t>(kChunkMemorySizeInByte) - leftOverMemory, std::alignment_of_v<T>);
 
-				Chunk* pChunk = m_Chunks[chunkIndex];
-				T* pAllocatedMemory = new (reinterpret_cast<volatile unsigned char*>(pChunk) + chunkMemoryAddressOffset) T();
+				auto* pChunk = reinterpret_cast<unsigned char*>(m_Chunks[chunkIndex]) + chunkMemoryAddressOffset;
+				T* pAllocatedMemory = new (pChunk) T();
 
 				leftOverMemory -= allocateSizeAligned;
 				return pAllocatedMemory;
-			
 			}
 			
 			++chunkIndex;
@@ -184,7 +182,11 @@ namespace ZE::Render
 	}
 
 	template <typename T>
-	concept IsValidNodeResourceType = Core::IsDefaultConstrctible<T> && Core::IsTriviallyDestructible<T>;
+	concept IsValidNodeResourceType = Core::IsDefaultConstrctible<T> &&
+		Core::IsTriviallyDestructible<T> &&
+		Core::IsTriviallyCopyable<T> &&
+		Core::IsTriviallyCopyAssignable<T> &&
+		Core::IsTriviallyCopyConstructible<T>;
 
 	class RenderGraph : protected GraphNode
 	{
@@ -222,17 +224,17 @@ namespace ZE::Render
 		GraphResourceDescType<Type> GetResourceDesc(const GraphResourceHandle& handle) const;
 		
 		/* Allocate node resource which can be passed into node lambdas.
-		*  Node resource type should not have any user-declared destructor and it should have a valid default constructor.
+		*  Node resource type should not have any user-declared destructors and it should have a valid default constructor.
 		*  Render graph will take care of its lifetime and destruct all node resources when render graph gets deleted.
 		*/
-		template <IsValidNodeResourceType T>
+		template <typename T> requires(IsValidNodeResourceType<T> && Core::Reflectable<T>)
 		T& AllocateNodeResource();
 
 		[[nodiscard("Allocated graph node must be used.")]] GraphNode& AddNode(const std::string& nodeName);
 
 		/* Execute render graph.
 		*  All graph nodes will be executed.
-		*  Allocated dedicated memory owned by graph node will be release after execution.
+		*  Allocated dedicated memory owned by graph node will be released after execution.
 		*/
 		void Execute(RenderBackend::PipelineStateCache& pipelineStateCache, RenderBackend::RenderWindow& renderWindow);
 
@@ -253,9 +255,7 @@ namespace ZE::Render
 		void UpdateResourceState(const GraphResourceHandle& handle, RenderBackend::ERenderResourceState state);
 
 		void TransitionResource(const GraphResourceHandle& handle, RenderBackend::ERenderResourceState dstResourceState, uint32_t queueIndex);
-		
-		// static GraphResourceHandle AllocateResourceHandle(const GraphResource& graphResource);
-
+	
 	private:
 
 		std::reference_wrapper<RenderBackend::RenderDevice>		m_RenderDevice;
@@ -283,7 +283,6 @@ namespace ZE::Render
 		m_CurrentResourcesStates.push_back(RenderBackend::ERenderResourceState::Undefined);
 		
 		auto& graphResource = m_Resources.back();
-		// graphResource.m_ResourceIndex = resourceIndex;
 		m_RenderDevice.get().DeferRelease(graphResource.GetResourceStorage<resourceType>());
 
 		GraphResourceHandle handle;
@@ -298,8 +297,6 @@ namespace ZE::Render
 		const auto resourceIndex = static_cast<uint32_t>(m_Resources.size()); 
 		m_Resources.emplace_back(resource);
 		m_CurrentResourcesStates.push_back(currentState);
-		// auto& graphResource = m_Resources.back();
-		// graphResource.m_ResourceIndex = resourceIndex;
 
 		GraphResourceHandle handle;
 		handle.m_ResourceId = resourceIndex;
@@ -312,7 +309,7 @@ namespace ZE::Render
 		return GetResource(handle).GetDesc<Type>();
 	}
 
-	template <IsValidNodeResourceType T>
+	template <typename T> requires(IsValidNodeResourceType<T> && Core::Reflectable<T>)
 	T& RenderGraph::AllocateNodeResource()
 	{
 		const std::string typeName = Core::GetTypeName_Direct<T>();

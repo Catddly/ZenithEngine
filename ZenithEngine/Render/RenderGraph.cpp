@@ -37,8 +37,8 @@ namespace ZE::Render
 				case RenderBackend::EShaderBindingResourceType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 				case RenderBackend::EShaderBindingResourceType::Texture2D: return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 			}
-
-			ZE_CHECK(false);
+			
+			ZE_UNREACHABLE();
 			return VK_DESCRIPTOR_TYPE_MAX_ENUM;
 		}
 	}
@@ -209,6 +209,7 @@ namespace ZE::Render
 
     void RenderGraphNodeMemoryAllocator::Release()
     {
+		// TODO: reuse by memory pool
         for (auto* pChunk : m_Chunks)
         {
             delete pChunk;
@@ -365,7 +366,6 @@ namespace ZE::Render
 		}
 
         // setup recursive basis
-
         std::queue<GraphNode*> inspectingNodes;
 
 		auto fMarkAsVisited = [&] (GraphNode* pNode) -> bool

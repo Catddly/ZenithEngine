@@ -12,7 +12,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #undef WIN32_LEAN_AND_MEAN
-#include <vulkan/vulkan_win32.h>
 // Uncomment to debug memory leaking
 // #define VMA_DEBUG_LOG(format, ...) do { char buffer[256]; std::sprintf(buffer, format, __VA_ARGS__); ZE_LOG_INFO("{}", buffer); } while(false);
 #define VMA_IMPLEMENTATION
@@ -20,30 +19,47 @@
 #undef VMA_IMPLEMENTATION
 
 #include <vector>
+#include <array>
 #include <ranges>
+#include <iterator>
 #include <algorithm>
 #include <limits>
+#include <string_view>
+
+// Expose operator""sv()
+using namespace std::string_view_literals;
+
+namespace 
+{
+	// TODO: move it to core module
+	bool IsGLFWInitialized()
+	{
+		int major = 0, minor = 0, rev = 0;
+		glfwGetVersion(&major, &minor, &rev);
+		return major != 0 || minor != 0 || rev != 0;
+	}
+}
 
 namespace ZE::RenderBackend
 {
 	constexpr static uint32_t gVulkanVersion = VK_MAKE_VERSION(1, 3, 0);
 
-	constexpr static char const* const gEngineRequiredInstanceLayers[] = {
-		"VK_LAYER_KHRONOS_validation",
+	constexpr static std::array gEngineRequiredInstanceLayers = {
+		"VK_LAYER_KHRONOS_validation"sv,
 	};
 
-	constexpr static char const* const gEngineRequiredInstanceExtensions[] = {
+	constexpr static std::array gEngineRequiredInstanceExtensions = {
 		VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 		VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
 		//VK_KHR_SURFACE_EXTENSION_NAME,
 		//VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
 	};
 
-	constexpr static char const* const gEngineRequiredDeviceLayers[] = {
-		"VK_LAYER_KHRONOS_validation",
+	constexpr static std::array gEngineRequiredDeviceLayers = {
+		"VK_LAYER_KHRONOS_validation"sv,
 	};
 
-	constexpr static char const* const gEngineRequiredDeviceExtensions[] = {
+	constexpr static std::array gEngineRequiredDeviceExtensions = {
 		// common
 		//-------------------------------------------------------------------------
 		//VK_KHR_MAINTENANCE1_EXTENSION_NAME,
@@ -135,27 +151,37 @@ namespace ZE::RenderBackend
 	{
 		std::vector<const char*> requiredInstanceLayerArray;
 		std::vector<const char*> requiredInstanceExtensionArray;
-
-		for (const char* layer : gEngineRequiredInstanceLayers)
+		
+		std::ranges::for_each(gEngineRequiredInstanceLayers, [&](auto layer)
 		{
-			requiredInstanceLayerArray.push_back(layer);
-		}
+			requiredInstanceLayerArray.push_back(layer.data());
+			ZE_LOG_INFO("Required instance layer: {}", layer);
+		});
 
-		for (const char* extension : gEngineRequiredInstanceExtensions)
+		std::ranges::for_each(gEngineRequiredInstanceExtensions, [&](auto extension)
 		{
 			requiredInstanceExtensionArray.push_back(extension);
-		}
+			ZE_LOG_INFO("Required instance extension: {}", extension); 
+		});
 
-		// TODO: verify glfw
-
+		ZE_EXEC_CHECK(IsGLFWInitialized());
+		
 		uint32_t glfwRequiredInstanceExtensionCount = 0;
 		const char** pGLFWRequiredExtensions = glfwGetRequiredInstanceExtensions(&glfwRequiredInstanceExtensionCount);
+		if (!pGLFWRequiredExtensions)
+		{
+			ZE_LOG_ERROR("Failed to get GLFW required instance extensions");
+			return false;
+		}
 
+		ZE_LOG_INFO("GLFW required instance extensions count: {}", glfwRequiredInstanceExtensionCount);
 		for (uint32_t i = 0; i < glfwRequiredInstanceExtensionCount; ++i)
 		{
-			auto iter = std::ranges::find_if(requiredInstanceExtensionArray, [pGLFWRequiredExtensions, i](const char* pExtension)
+			ZE_LOG_INFO("GLFW required instance extension: {}", pGLFWRequiredExtensions[i]);
+			auto iter = std::ranges::find_if(requiredInstanceExtensionArray, [pGLFWRequiredExtensions, i](auto extension)
 			{
-				if (std::strcmp(pGLFWRequiredExtensions[i], pExtension) == 0)
+				std::string_view glfwExtension = pGLFWRequiredExtensions[i];
+				if (glfwExtension == extension)
 				{
 					return true;
 				}
@@ -172,11 +198,13 @@ namespace ZE::RenderBackend
 
 		if (!CollectInstanceLayerProps(requiredInstanceLayerArray))
 		{
+			ZE_LOG_ERROR("Failed to collect instance layer properties");
 			return false;
 		}
 
 		if (!CollectInstanceExtensionProps(requiredInstanceExtensionArray))
 		{
+			ZE_LOG_ERROR("Failed to collect instance extension properties");
 			return false;
 		}
 
@@ -209,6 +237,7 @@ namespace ZE::RenderBackend
 
 		VulkanCheckSucceed(vkCreateInstance(&instanceCI, nullptr, &m_Inst));
 
+		ZE_LOG_INFO("Vulkan instance created successfully");
 		return true;
 	}
 
@@ -281,75 +310,51 @@ namespace ZE::RenderBackend
 			}
 		}
 
-		// Calculate devices' pick score
-		for (auto& pd : m_PhysicalDevices)
+		std::ranges::for_each(m_PhysicalDevices | std::views::filter([&](const auto& phyDevice)
 		{
-			bool bHasValidPresentQueue = false;
-
-			for (const auto& queue : pd.m_QueueArray)
+			return std::ranges::any_of(phyDevice.m_QueueArray, [&](const auto& queue)
 			{
 				VkBool32 supported = false;
+				VulkanCheckSucceed(vkGetPhysicalDeviceSurfaceSupportKHR(phyDevice.m_Handle, queue.m_Index, m_Surface, &supported));
 
-				VulkanCheckSucceed(vkGetPhysicalDeviceSurfaceSupportKHR(pd.m_Handle, queue.m_Index, m_Surface, &supported));
-
-				// is this physical device support present?
-				if (queue.m_Props.queueCount > 0 &&
-					queue.IsGraphicQueue() &&
-					supported)
-				{
-					bHasValidPresentQueue = true;
-					break;
-				}
-			}
-
-			if (bHasValidPresentQueue)
+				return queue.m_Props.queueCount > 0 && queue.IsGraphicQueue() && supported;
+			});
+		}), [](auto& phyDevice)
+		{
+			if ((phyDevice.m_Props.deviceType & VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) != 0)
 			{
-				if ((pd.m_Props.deviceType & VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) != 0)
-				{
-					pd.m_PickScore = 10u;
-				}
-				else if ((pd.m_Props.deviceType & VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) != 0)
-				{
-					pd.m_PickScore = 100u;
-				}
-				else if ((pd.m_Props.deviceType & VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU) != 0)
-				{
-					pd.m_PickScore = 1u;
-				}
-				else
-				{
-					ZE_LOG_ERROR("Found invalid physical device type: {}", static_cast<uint32_t>(pd.m_Props.deviceType));
-					pd.m_PickScore = 0u;
-				}
+				phyDevice.m_PickScore = 10u;
+			}
+			else if ((phyDevice.m_Props.deviceType & VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) != 0)
+			{
+				phyDevice.m_PickScore = 100u;
+			}
+			else if ((phyDevice.m_Props.deviceType & VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU) != 0)
+			{
+				phyDevice.m_PickScore = 1u;
 			}
 			else
 			{
-				pd.m_PickScore = 0u;
+				ZE_LOG_ERROR("Found invalid physical device type: {}", static_cast<uint32_t>(phyDevice.m_Props.deviceType));
+				phyDevice.m_PickScore = 0u;
 			}
-		}
-
+		});
+		
 		// Pick the most suitable physical device
-		bool allPhysicalDeviceInvalid = true;
-
-		uint32_t currPickScore = std::numeric_limits<uint32_t>::min();
-
-		for (std::size_t i = 0; i < m_PhysicalDevices.size(); ++i)
+		bool bAllPhysicalDeviceInvalid = true;
+		
+		auto validDevices = m_PhysicalDevices | std::views::filter([](const auto& phyDevice)
 		{
-			auto const& pd = m_PhysicalDevices[i];
-
-			if (pd.m_PickScore > 0)
-			{
-				allPhysicalDeviceInvalid = false;
-
-				if (pd.m_PickScore > currPickScore)
-				{
-					m_PickedPhysicalDeviceIndex = (int32_t)i;
-					currPickScore = pd.m_PickScore;
-				}
-			}
+			return phyDevice.m_PickScore > 0u;
+		});
+		if (!validDevices.empty())
+		{
+			auto bestDevice = std::ranges::max_element(validDevices, {}, &PhysicalDevice::m_PickScore);
+			m_PickedPhysicalDeviceIndex = static_cast<int>(bestDevice.base() - m_PhysicalDevices.begin());
+			bAllPhysicalDeviceInvalid = false;
 		}
 
-		if (allPhysicalDeviceInvalid)
+		if (bAllPhysicalDeviceInvalid)
 		{
 			ZE_LOG_ERROR("No valid physical devices had been found. Render device can NOT be created.");
 			return false;
@@ -370,12 +375,12 @@ namespace ZE::RenderBackend
 		std::vector<const char*> requiredDeviceLayerArray;
 		std::vector<const char*> requiredDeviceExtensionArray;
 
-		for (const char* layer : gEngineRequiredDeviceLayers)
+		for (auto layer : gEngineRequiredDeviceLayers)
 		{
-			requiredDeviceLayerArray.push_back(layer);
+			requiredDeviceLayerArray.push_back(layer.data());
 		}
 
-		for (const char* extension : gEngineRequiredDeviceExtensions)
+		for (auto extension : gEngineRequiredDeviceExtensions)
 		{
 			requiredDeviceExtensionArray.push_back(extension);
 		}
@@ -565,18 +570,18 @@ namespace ZE::RenderBackend
 
 		for (auto const& required : requiredLayers)
 		{
-			bool foundLayer = false;
+			bool bFoundLayer = false;
 
 			for (auto const& layer : layerProps)
 			{
-				if (strcmp(required, layer.layerName) == 0)
+				if (std::string_view(required) == std::string_view(layer.layerName))
 				{
-					foundLayer = true;
+					bFoundLayer = true;
 					break;
 				}
 			}
 
-			if (!foundLayer)
+			if (!bFoundLayer)
 			{
 				ZE_LOG_ERROR("Instance layer not found: {}", required);
 				return false;
@@ -603,7 +608,7 @@ namespace ZE::RenderBackend
 
 			for (auto const& ext : extProps)
 			{
-				if (strcmp(required, ext.extensionName) == 0)
+				if (std::string_view(required) == std::string_view(ext.extensionName))
 				{
 					foundExt = true;
 					break;
@@ -635,18 +640,18 @@ namespace ZE::RenderBackend
 
 		for (auto const& required : requiredLayers)
 		{
-			bool foundLayer = false;
+			auto bFoundLayer = false;
 
 			for (auto const& layer : layerProps)
 			{
-				if (strcmp(required, layer.layerName) == 0)
+				if (std::string_view(required) == std::string_view(layer.layerName))
 				{
-					foundLayer = true;
+					bFoundLayer = true;
 					break;
 				}
 			}
 
-			if (!foundLayer)
+			if (!bFoundLayer)
 			{
 				ZE_LOG_ERROR("Device layer not found: {}", required);
 				return false;
@@ -675,7 +680,7 @@ namespace ZE::RenderBackend
 
 			for (auto const& ext : extProps)
 			{
-				if (strcmp(required, ext.extensionName) == 0)
+				if (std::string_view(required) == std::string_view(ext.extensionName))
 				{
 					foundExt = true;
 					break;

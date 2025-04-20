@@ -28,7 +28,10 @@ namespace ZE::Render
 
     	m_PipelineStateCache = new RenderBackend::PipelineStateCache(*m_RenderDevice);
 
-    	m_TriangleRenderer.Prepare(*m_RenderDevice);
+    	if (!m_TriangleRenderer.Prepare(*m_RenderDevice))
+    	{
+    		return false;
+    	}
 
         return true;
     }
@@ -53,25 +56,17 @@ namespace ZE::Render
 			delete m_RenderDevice;
 		}
     }
-
-    void RenderModule::BuildFrameTasks(tf::Taskflow& taskFlow)
+	
+    void RenderModule::Render()
     {
-		tf::Task drawTask = taskFlow.emplace([this]()
-		{
-			Draw();
-		});
-    }
-
-	void RenderModule::Draw()
-	{
-		using namespace ZE::Render;
-		using namespace ZE::RenderBackend;
+    	using namespace ZE::Render;
+    	using namespace ZE::RenderBackend;
     	
-		m_MainRenderWindow->BeginFrame();
+    	m_MainRenderWindow->BeginFrame();
     	// must wait for the commands to finish before releasing all defer release resources
-		m_RenderDevice->BeginFrame();
+    	m_RenderDevice->BeginFrame();
     	
-		RenderGraph renderGraph(*m_RenderDevice);
+    	RenderGraph renderGraph(*m_RenderDevice);
     	
     	auto pSwapchainRT = GetMainRenderWindow()->GetFrameSwapchainRenderTarget();
     	ZE_CHECK(pSwapchainRT);
@@ -85,15 +80,15 @@ namespace ZE::Render
 
     	m_TriangleRenderer.Render(renderGraph, swapchainRTHandle, depthRTHandle);
 
-		{
-			auto& presentNode = renderGraph.AddNode("Present");
-			presentNode.Read(swapchainRTHandle, ERenderResourceState::Present);
-		}
+	    {
+    		auto& presentNode = renderGraph.AddNode("Present");
+    		presentNode.Read(swapchainRTHandle, ERenderResourceState::Present);
+	    }
     	
-		renderGraph.Execute(*m_PipelineStateCache, *m_MainRenderWindow);
+    	renderGraph.Execute(*m_PipelineStateCache, *m_MainRenderWindow);
     	m_MainRenderWindow->Present();
 
     	m_MainRenderWindow->EndFrame();
     	m_RenderDevice->EndFrame();
-	}
+    }
 }

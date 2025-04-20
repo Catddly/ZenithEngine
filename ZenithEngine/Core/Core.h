@@ -19,9 +19,7 @@ namespace ZE::Core
 
 		virtual bool InitializeModule() override;
 		virtual void ShutdownModule() override;
-
-		virtual void BuildFrameTasks(tf::Taskflow& taskFlow) override;
-
+		
 		void ProcessPlatformEvents();
 		
 	private:

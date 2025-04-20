@@ -12,6 +12,15 @@ namespace ZE::Core
 	concept IsDefaultConstrctible = std::is_default_constructible_v<T>;
 
 	template <typename T>
+	concept IsTriviallyCopyable = std::is_trivially_copyable_v<T>;
+	
+	template <typename T>
+	concept IsTriviallyCopyAssignable = std::is_trivially_copy_assignable_v<T>;
+	
+	template <typename T>
+	concept IsTriviallyCopyConstructible = std::is_trivially_copy_constructible_v<T>;
+
+	template <typename T>
 	concept IsTriviallyDestructible = std::is_trivially_destructible_v<T>;
 
 	template <size_t N>

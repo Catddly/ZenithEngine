@@ -3,8 +3,6 @@
 #include "ModuleDefines.h"
 #include "Core/Module.h"
 
-#include <taskflow/taskflow.hpp>
-
 namespace ZE::Core { class CoreModule; }
 namespace ZE::Log { class LogModule; }
 namespace ZE::Render { class RenderModule; }
@@ -31,18 +29,10 @@ namespace ZE::Engine
 		Log::LogModule* GetLogModule() const { return m_LogModule; }
 		Render::RenderModule* GetRenderModule() const { return m_RenderModule; }
 
-	protected:
-
-		/* Build frame tasks in user customize order and priority. */
-		virtual void BuildFrameTasks(tf::Taskflow& taskFlow);
+		// TaskSystem::TaskManager& GetTaskManager() { return m_TaskManager; }
 
 	private:
-
-		/* Clear frame tasks. 
-		*  TODO: may be cached frame tasks?
-		*/
-		void ClearFrameTasks();
-
+		
 		static bool InitializeModule(Core::IModule* pModule);
 
 	protected:
@@ -53,10 +43,7 @@ namespace ZE::Engine
 		Render::RenderModule*			m_RenderModule = nullptr;
 
 	private:
-
-		tf::Taskflow					m_TaskFlow = { "Engine" };
-		tf::Executor					m_TaskExecutor;
-
+		
 		bool							m_IsPreInitialized = false;
 		bool							m_IsInitialized = false;
 		bool							m_RequestExit = false;

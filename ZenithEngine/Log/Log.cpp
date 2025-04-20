@@ -36,30 +36,4 @@ namespace ZE::Log
 
 		m_Logger.reset();
 	}
-
-	void LogModule::BuildFrameTasks(tf::Taskflow& taskFlow)
-	{
-		// auto [condSwitch, cond, trueTask, falseTask] = taskFlow.emplace(
-		// 	[this]() { m_TestBranch = !m_TestBranch; },
-		// 	[this]() { return m_TestBranch; },
-		// 	&TestStaticLoggerTask,
-		// 	[this]() { TestLoggerTask(); }
-		// );
-		//
-		// condSwitch.precede(cond);
-		// cond.precede(falseTask, trueTask);
-	}
-
-	void LogModule::TestStaticLoggerTask()
-	{
-		// std::this_thread::sleep_for(std::chrono::seconds(1));
-		// ZE_LOG_INFO("Test static logger task!");
-	}
-
-	void LogModule::TestLoggerTask()
-	{
-		// std::this_thread::sleep_for(std::chrono::milliseconds(30));
-		// ZE_LOG_INFO("Test logger task!");
-	}
-
 }

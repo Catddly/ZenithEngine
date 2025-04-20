@@ -11,13 +11,13 @@ target("ZenithEngine")
     set_kind("shared")
     add_defines("ZENITH_ENGINE_DLL_EXPORT=1", "GLFW_VULKAN_STATIC")
 
-    add_packages("taskflow", "spdlog", "glm", "glfw", "refl-cpp")
+    add_packages("taskflow", "spdlog", "glm", "glfw")
 
     add_headerfiles("**.h", "**.hpp")
     add_files("**.cpp|ThirdParty/vulkan/**.c|ThirdParty/vulkan/**.cpp")
 
     add_includedirs("$(projectdir)/ZenithEngine/")
-    add_includedirs("$(projectdir)/ZenithEngine/ThirdParty/refl-cpp/include/")
+    add_includedirs("$(projectdir)/ZenithEngine/ThirdParty/refl-cpp/include")
     add_includedirs("$(projectdir)/ZenithEngine/ThirdParty/vulkan/Include/")
     
     -- vulkan

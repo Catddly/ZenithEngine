@@ -19,14 +19,7 @@ namespace ZE::Log
 
 		bool InitializeModule() override;
 		void ShutdownModule() override;
-
-		virtual void BuildFrameTasks(tf::Taskflow& taskFlow) override;
-
-	private:
-
-		static void TestStaticLoggerTask();
-		void TestLoggerTask();
-
+	
 	private:
 
 		std::shared_ptr<spdlog::logger>				m_Logger;

@@ -7,10 +7,14 @@
 #include "Render/Render.h"
 #include "Platform/Window.h"
 #include "RenderBackend/RenderWindow.h"
+#include "TaskSystem/TaskManager.h"
 
 #include <GLFW/glfw3.h>
 
 #include <numeric>
+#include <ranges>
+
+using namespace std::chrono_literals;
 
 namespace ZE::Engine
 {
@@ -43,7 +47,7 @@ namespace ZE::Engine
 		{
 			return false;
 		}
-
+		
 		m_IsInitialized = true;
 		return m_IsInitialized;
 	}
@@ -66,20 +70,22 @@ namespace ZE::Engine
 		m_LogModule->ShutdownModule();
 		delete m_LogModule;
 	}
-
+	
 	void Engine::Run()
 	{
 		ZE_CHECK(m_IsPreInitialized);
 		ZE_CHECK(m_IsInitialized);
 
 		uint64_t frameCounter = 0ull;
-		double frameTimes[10] = {};
+		double frameTimes[20] = {};
 		
+		TaskSystem::TaskHandle renderTask;
 		while (!m_RequestExit)
 		{
 			{
 				Core::ScopedTimer<Core::ETimeUnit::MilliSecond> scopedTimer(frameTimes[frameCounter % 10]);
 
+				renderTask.Wait();
 				m_CoreModule->ProcessPlatformEvents();
 
 				if (m_RenderModule->GetMainRenderWindow()->IsRequestingClose())
@@ -88,51 +94,25 @@ namespace ZE::Engine
 					break;
 				}
 				
-				BuildFrameTasks(m_TaskFlow);
-
-				// TODO: this thread should work too.
-				m_TaskExecutor.run(m_TaskFlow).wait();
-			
-				ClearFrameTasks();
+				renderTask = TaskSystem::TaskManager::Get().RunTask([this, frameCounter]
+				{
+					m_RenderModule->Render();
+				}, {}, TaskSystem::EDedicatedThread::RenderThread);
 			}
 
-			if (frameCounter % 1000 == 1)
+			if (frameCounter % 1000 == 1 /* skip first 1000 frames */)
 			{
 				const double averageFrameTime = std::accumulate(frameTimes, frameTimes + std::min(frameCounter, 10ull), 0.0) / static_cast<double>(std::min(frameCounter, 10ull));
 				ZE_LOG_INFO("Current frame rate: {:.5} fps", 1000.f / averageFrameTime);
 			}
 			frameCounter++;
 		}
+
+		TaskSystem::TaskManager::Get().WaitAllFinished();
 	}
 
 	//-------------------------------------------------------------------------
-
-	void Engine::BuildFrameTasks(tf::Taskflow& taskFlow)
-	{
-		ZE_CHECK(taskFlow.empty());
-
-		auto coreTask = taskFlow.composed_of(m_CoreModule->BuildAndGetFrameTasks()).name(m_CoreModule->GetModuleName());
-		auto logTask = taskFlow.composed_of(m_LogModule->BuildAndGetFrameTasks()).name(m_LogModule->GetModuleName());
-
-		auto renderTask = taskFlow.composed_of(m_RenderModule->BuildAndGetFrameTasks()).name(m_RenderModule->GetModuleName());
 	
-		// Build task dependencies
-
-		coreTask.precede(logTask);
-		logTask.succeed(renderTask);
-		coreTask.precede(renderTask);
-	}
-
-	void Engine::ClearFrameTasks()
-	{
-		m_LogModule->ClearFrameTasks();
-		m_CoreModule->ClearFrameTasks();
-
-		m_RenderModule->ClearFrameTasks();
-
-		m_TaskFlow.clear();
-	}
-
 	bool Engine::InitializeModule(Core::IModule* pModule)
 	{
 		if (!pModule->InitializeModule())

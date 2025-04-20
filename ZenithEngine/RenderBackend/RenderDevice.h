@@ -71,7 +71,7 @@ namespace ZE::RenderBackend
 
 			std::vector<QueueFamily>			m_QueueArray;
 
-			uint32_t							m_PickScore = 0;
+			uint32_t							m_PickScore = 0u;
 
 			VkPhysicalDeviceFeatures			m_Features;
 			VkPhysicalDeviceProperties			m_Props;
@@ -163,10 +163,10 @@ namespace ZE::RenderBackend
 		uint32_t										m_TransferQueueFamilyIndex = std::numeric_limits<uint32_t>::max();
 			
 		uint32_t												m_FrameIndex = 0;
-		std::array<RenderCommandList*, kSwapBufferCount>		m_FrameCommandLists;
+		std::array<RenderCommandList*, kSwapBufferCount>		m_FrameCommandLists = {};
 
-		std::array<DescriptorCache*, kSwapBufferCount>			m_FrameDescriptorCaches;
-		std::array<DeferReleaseQueue, kSwapBufferCount>			m_FrameDeferReleaseQueues;
+		std::array<DescriptorCache*, kSwapBufferCount>			m_FrameDescriptorCaches = {};
+		std::array<DeferReleaseQueue, kSwapBufferCount>			m_FrameDeferReleaseQueues = {};
 
 		bool													m_HadBeganFrame = false;
 	};

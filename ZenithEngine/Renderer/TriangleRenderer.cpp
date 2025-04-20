@@ -1,11 +1,25 @@
 ﻿#include "TriangleRenderer.h"
 
+#include "Core/Reflection.h"
 #include "Render/RenderGraph.h"
 #include "RenderBackend/RenderResource.h"
 
 #include <glm/mat4x4.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
+
+#include <array>
+
+namespace ZE::Renderer
+{
+	struct Matrices
+	{
+		glm::mat4 m_ModelMat;
+		glm::mat4 m_ViewMat;
+		glm::mat4 m_ProjectionMat;
+	};
+}
+REFL_AUTO(type(ZE::Renderer::Matrices), field(m_ModelMat), field(m_ViewMat), field(m_ProjectionMat));
 
 namespace ZE::Renderer
 {
@@ -15,42 +29,46 @@ namespace ZE::Renderer
 		float			m_Color[3];
 	};
 
-	const std::vector<Vertex> vertices{
-		{ {  1.0f,  1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f } },
-		{ { -1.0f,  1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
-		{ {  0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
+	constexpr std::array kTriangleVertices{
+		Vertex{ .m_Position = {  1.0f,  1.0f, 0.0f }, .m_Color = { 1.0f, 0.0f, 0.0f } },
+		Vertex{ .m_Position = { -1.0f,  1.0f, 0.0f }, .m_Color = { 0.0f, 1.0f, 0.0f } },
+		Vertex{ .m_Position = {  0.0f, -1.0f, 0.0f }, .m_Color = { 0.0f, 0.0f, 1.0f } }
 	};
-
-	const std::vector<uint32_t> indices{ 0, 1, 2 };
+	constexpr std::array kTriangleIndices{ 0u, 1u, 2u };
 	
 	bool TriangleRenderer::Prepare(RenderBackend::RenderDevice& renderDevice)
 	{
 		RenderBackend::BufferDesc bufferDesc("triangle vertex buffer");
-		bufferDesc.m_Size = static_cast<uint32_t>(sizeof(Vertex)) * vertices.size();
+		bufferDesc.m_Size = static_cast<uint32_t>(sizeof(Vertex)) * kTriangleVertices.size();
 		bufferDesc.m_Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 		bufferDesc.m_MemoryUsage = RenderBackend::BufferMemoryUsage::GpuOnly;
 
-		m_VertexBuffer = std::shared_ptr<RenderBackend::Buffer>(RenderBackend::Buffer::Create(renderDevice, bufferDesc, vertices.data(), bufferDesc.m_Size));
+		m_VertexBuffer = std::shared_ptr<RenderBackend::Buffer>(RenderBackend::Buffer::Create(renderDevice, bufferDesc, kTriangleVertices.data(), bufferDesc.m_Size));
 		if (!m_VertexBuffer)
 		{
 			return false;
 		}
 
 		bufferDesc.m_DebugName = "triangle index buffer";
-		bufferDesc.m_Size = static_cast<uint32_t>(indices.size()) * sizeof(uint32_t);
+		bufferDesc.m_Size = static_cast<uint32_t>(kTriangleIndices.size()) * sizeof(uint32_t);
 		bufferDesc.m_Usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 		bufferDesc.m_MemoryUsage = RenderBackend::BufferMemoryUsage::GpuOnly;
 
-		m_IndexBuffer = std::shared_ptr<RenderBackend::Buffer>(RenderBackend::Buffer::Create(renderDevice, bufferDesc, indices.data(), bufferDesc.m_Size));
+		m_IndexBuffer = std::shared_ptr<RenderBackend::Buffer>(RenderBackend::Buffer::Create(renderDevice, bufferDesc, kTriangleIndices.data(), bufferDesc.m_Size));
 		if (!m_IndexBuffer)
 		{
 			return false;
 		}
 
 		m_TriangleVS = std::make_shared<RenderBackend::VertexShader>(renderDevice, "../ZenithEngine/Shaders/TriangleVS.spirv");
-		m_TrianglePS = std::make_shared<RenderBackend::PixelShader>(renderDevice, "../ZenithEngine/Shaders/TrianglePS.spirv");
+		if (!m_TriangleVS || !m_TriangleVS->IsValid())
+		{
+			ZE_CHECK_LOG(false, "Failed to find valid triangle vertex shader!");
+			return false;
+		}
 
-		if (!m_TriangleVS || !m_TrianglePS)
+		m_TrianglePS = std::make_shared<RenderBackend::PixelShader>(renderDevice, "../ZenithEngine/Shaders/TrianglePS.spirv");
+		if (!m_TrianglePS || !m_TrianglePS->IsValid())
 		{
 			return false;
 		}
@@ -101,6 +119,9 @@ namespace ZE::Renderer
 	
 	void TriangleRenderer::Release(RenderBackend::RenderDevice& renderDevice)
 	{
+		m_TriangleVS.reset();
+		m_TrianglePS.reset();
+		
 		m_VertexBuffer.reset();
 		m_IndexBuffer.reset();
 	}
@@ -113,12 +134,10 @@ namespace ZE::Renderer
 		auto vbHandle = renderGraph.ImportResource(m_VertexBuffer, ERenderResourceState::VertexBuffer);
 		auto idHandle = renderGraph.ImportResource(m_IndexBuffer, ERenderResourceState::IndexBuffer);
 		
-		struct Matrices
-		{
-			glm::mat4 m_ModelMat;
-			glm::mat4 m_ViewMat;
-			glm::mat4 m_ProjectionMat;
-		};
+		auto& matrices = renderGraph.AllocateNodeResource<Matrices>();
+		matrices.m_ModelMat = glm::mat4(1.0f);
+		matrices.m_ViewMat = glm::lookAtRH(glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		matrices.m_ProjectionMat = glm::infinitePerspectiveRH_ZO(glm::radians(45.0f), 1.0f, 1.0f);
 
 		BufferDesc uniformBufferDesc;
 		uniformBufferDesc.m_Size = sizeof(Matrices);
@@ -140,16 +159,11 @@ namespace ZE::Renderer
 			.BindDepthStencilRenderTarget(outputDepthRT, ERenderTargetLoadOperation::DontCare, ERenderTargetStoreOperation::Store)
 			.BindVertexShader(m_TriangleVS)
 			.BindPixelShader(m_TrianglePS)
-			.Execute([matrixBufferHandle, vbHandle, idHandle, outputColorRT](GraphExecutionContext& context)
+			.Execute([matrixBufferHandle, vbHandle, idHandle, outputColorRT, &matrices](GraphExecutionContext& context)
 		{
 			const auto& desc = context.GetDesc<GraphResourceType::Texture>(outputColorRT);
 			context.SetViewportSize(desc.m_Size.x, desc.m_Size.y);
-			
-			Matrices matrices;
-			matrices.m_ModelMat = glm::mat4(1.0f);
-			matrices.m_ViewMat = glm::lookAtRH(glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			matrices.m_ProjectionMat = glm::infinitePerspectiveRH_ZO(glm::radians(45.0f), 1.0f, 1.0f);
-
+				
 			context.UpdateUniformBuffer(matrixBufferHandle, matrices);
 			context.BindResource("view", matrixBufferHandle);
 			context.BindPipeline();

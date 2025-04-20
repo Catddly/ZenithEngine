@@ -72,6 +72,8 @@ namespace ZE::RenderBackend
 
 		virtual uint64_t GetHash() const { return m_Hash; }
 
+		bool IsValid() const { return m_Shader != nullptr; }
+
 	protected:
 
 		void ReleaseGPUShaderObject();

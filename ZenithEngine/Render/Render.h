@@ -25,15 +25,9 @@ namespace ZE::Render
 		virtual bool InitializeModule() override;
 		virtual void ShutdownModule() override;
 
-		virtual void BuildFrameTasks(tf::Taskflow& taskFlow) override;
-
-	public:
-
+		void Render();
+		
 		std::shared_ptr<RenderBackend::RenderWindow> GetMainRenderWindow() const { return m_MainRenderWindow; }
-	
-	private:
-
-		void Draw();
 
 	private:
 
