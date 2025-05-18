@@ -4,7 +4,7 @@
 
 namespace ZE
 {
-	void RunZenithEngine(Engine::Engine& engine)
+	void RunZenithEngine(Core::Engine& engine)
 	{
 		engine.PreInitialize();
 		engine.Initialize();
@@ -19,8 +19,8 @@ namespace ZE
 
 	RunEngineScoped::RunEngineScoped()
 	{
-		ZE_EXEC_CHECK(m_Engine.PreInitialize());
-		ZE_EXEC_CHECK(m_Engine.Initialize());
+		ZE_EXEC_ASSERT(m_Engine.PreInitialize());
+		ZE_EXEC_ASSERT(m_Engine.Initialize());
 	}
 
 	RunEngineScoped::~RunEngineScoped()

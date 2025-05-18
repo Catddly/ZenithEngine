@@ -26,7 +26,7 @@ namespace ZE::RenderBackend
 		bool Initialize();
 		void Shutdown();
 
-		virtual void Resize(uint32_t width, uint32_t height) override;
+		virtual bool Resize(uint32_t width, uint32_t height) override;
 
 		void BeginFrame();
 		void EndFrame();
@@ -42,9 +42,9 @@ namespace ZE::RenderBackend
 
 	private:
 		
-		VkSwapchainKHR	m_Swapchain = nullptr;
+		VkSwapchainKHR															m_Swapchain = nullptr;
 
-		TextureDesc		m_SwapchainBackbufferDesc = {"swapchain render target"};
+		TextureDesc																m_SwapchainBackbufferDesc = {"swapchain render target"};
 
 		std::array<VkSemaphore, RenderDevice::kSwapBufferCount>					m_PresentCompleteSemaphores = {};
 		std::array<VkSemaphore, RenderDevice::kSwapBufferCount>					m_RenderCompleteSemaphores = {};
@@ -57,5 +57,6 @@ namespace ZE::RenderBackend
 		std::array<std::shared_ptr<Texture>, RenderDevice::kSwapBufferCount>	m_SwapchainTextures = {};
 
 		bool																	m_HadBeganRendering = false;
+		bool																	m_HadResized = false;
 	};
 }

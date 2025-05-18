@@ -7,13 +7,17 @@
 
 #include <memory>
 
+#if ZENITH_ENABLE_RUNTIME_CHECK
+#	include <source_location>
+#endif
+
 namespace ZE::Log
 {
 	class LogModule : public Core::IModule
 	{
 	public:
 
-		LogModule(Engine::Engine& engine)
+		LogModule(Core::Engine& engine)
 			: Core::IModule(engine, Core::EModuleInitializePhase::PreInit, "Log")
 		{}
 
@@ -26,6 +30,12 @@ namespace ZE::Log
 	
 		bool										m_TestBranch = false;
 	};
+	
+#if ZENITH_ENABLE_RUNTIME_CHECK
+#	define ZE_FUNC_NAME std::source_location::current().function_name()
+#else
+#	define ZE_FUNC_NAME "function::<unknown>"
+#endif
 }
 
 #define ZE_LOG_VERBOSE(...) spdlog::trace(__VA_ARGS__)

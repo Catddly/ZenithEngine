@@ -5,7 +5,8 @@
 #include "Log/Log.h"
 #include "Platform/Displayable.h"
 
-#include <chrono>
+#include "FileSystem.h"
+#include "Asset/Asset.h"
 
 namespace ZE::Core
 {
@@ -18,13 +19,13 @@ namespace ZE::Core
 			return false;
 		}
 
+		FileSystem::Mount();
+
         return true;
     }
 
     void CoreModule::ShutdownModule()
     {
-		ZE_LOG_INFO("Output math result:\n{}", m_MathData.accumMat);
-	
 		if (m_DisplayDevice)
 		{
 			m_DisplayDevice->Shutdown();

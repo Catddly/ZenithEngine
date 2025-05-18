@@ -1,1 +1,0 @@
-dxc.exe [FileToCompile] -spirv -fspv-target-env=vulkan1.3 -T ps_6_4 -E Main -Fo [OutputSpirv]

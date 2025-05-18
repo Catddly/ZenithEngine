@@ -17,6 +17,7 @@ add_cxxflags("/GR-")
 -- Debug
 if is_mode("debug") then
     set_symbols("debug")
+    set_strip("debug")
     set_optimize("none")
 end
 

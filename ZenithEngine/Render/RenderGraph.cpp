@@ -28,14 +28,14 @@ namespace ZE::Render
 		std::forward_list<RenderBackend::ERenderResourceState> gsTempPrevResourceTransitionStates;
 		std::forward_list<RenderBackend::ERenderResourceState> gsTempNextResourceTransitionStates;
 		
-		VkDescriptorType ToVkDescriptorType(RenderBackend::EShaderBindingResourceType type)
+		VkDescriptorType ToVkDescriptorType(EShaderBindingResourceType type)
 		{
-			switch ( type )
+			switch (type)
 			{
-				case RenderBackend::EShaderBindingResourceType::Unknown: return VK_DESCRIPTOR_TYPE_MAX_ENUM;
-				case RenderBackend::EShaderBindingResourceType::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-				case RenderBackend::EShaderBindingResourceType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-				case RenderBackend::EShaderBindingResourceType::Texture2D: return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+				case EShaderBindingResourceType::Unknown: return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+				case EShaderBindingResourceType::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+				case EShaderBindingResourceType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+				case EShaderBindingResourceType::Texture2D: return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 			}
 			
 			ZE_UNREACHABLE();
@@ -49,7 +49,7 @@ namespace ZE::Render
 	
 	void GraphExecutionContext::SetViewportSize(const glm::uvec2& viewportSize) const
 	{
-		ZE_CHECK(m_RenderTargetPtrs && m_RenderTargetBindings);
+		ZE_ASSERT(m_RenderTargetPtrs && m_RenderTargetBindings);
 		
 		m_RenderCommandList->CmdBeginDynamicRendering(viewportSize, *m_RenderTargetPtrs, *m_RenderTargetBindings);
 		m_RenderCommandList->CmdSetViewport(viewportSize);
@@ -115,7 +115,7 @@ namespace ZE::Render
 			}
 			else
 			{
-				ZE_CHECK_LOG(false, "Unknown or invalid resource type.");
+				ZE_ASSERT_LOG(false, "Unknown or invalid resource type.");
 			}
 		}
 	}
@@ -150,7 +150,7 @@ namespace ZE::Render
 
     void GraphNode::Read(const GraphResourceHandle& handle, RenderBackend::ERenderResourceState access)
     {
-		ZE_CHECK(m_RenderGraph);
+		ZE_ASSERT(m_RenderGraph);
 
 		m_InputResources.push_back(handle);
 		m_InputResourceStates.push_back(access);
@@ -158,7 +158,7 @@ namespace ZE::Render
 	
     void GraphNode::Write(const GraphResourceHandle& handle, RenderBackend::ERenderResourceState access)
 	{
-		ZE_CHECK(m_RenderGraph);
+		ZE_ASSERT(m_RenderGraph);
 		
 		m_OutputResources.push_back(handle);
 		m_OutputResourceStates.push_back(access);
@@ -166,8 +166,8 @@ namespace ZE::Render
 
     GraphNode& GraphNode::AddColorRenderTarget(const GraphResourceHandle& handle, RenderBackend::ERenderTargetLoadOperation loadOp, RenderBackend::ERenderTargetStoreOperation storeOp, const glm::vec4& clearColor)
     {
-        ZE_CHECK(m_ColorAttachments.size() <= kMaxColorAttachments);
-        ZE_CHECK(m_RenderGraph->GetResource(handle).IsTypeOf<GraphResourceType::Texture>());
+        ZE_ASSERT(m_ColorAttachments.size() <= kMaxColorAttachments);
+        ZE_ASSERT(m_RenderGraph->GetResource(handle).IsTypeOf<GraphResourceType::Texture>());
 
         m_ColorAttachments.push_back(handle);
 		m_ColorAttachmentBindings.emplace_back(loadOp, storeOp, clearColor);
@@ -176,22 +176,22 @@ namespace ZE::Render
 	
     GraphNode& GraphNode::BindDepthStencilRenderTarget(const GraphResourceHandle& handle, RenderBackend::ERenderTargetLoadOperation loadOp, RenderBackend::ERenderTargetStoreOperation storeOp, const RenderBackend::DepthStencilClearValue& clearValue)
     {
-		ZE_CHECK(m_RenderGraph->GetResource(handle).IsTypeOf<GraphResourceType::Texture>());
+		ZE_ASSERT(m_RenderGraph->GetResource(handle).IsTypeOf<GraphResourceType::Texture>());
 
         m_DepthStencilAttachment = handle;
 		m_DepthStencilAttachmentBinding = {.m_LoadOp = loadOp, .m_StoreOp = storeOp, .m_ClearValue = clearValue};
 		return *this;
     }
 
-    GraphNode& GraphNode::BindVertexShader(std::shared_ptr<RenderBackend::VertexShader> pVertexShader)
+    GraphNode& GraphNode::BindVertexShader(const VertexShader* pVertexShader)
     {
-        m_VertexShader = std::move(pVertexShader);
+        m_VertexShader = pVertexShader;
 		return *this;
     }
 
-    GraphNode& GraphNode::BindPixelShader(std::shared_ptr<RenderBackend::PixelShader> pPixelShader)
+    GraphNode& GraphNode::BindPixelShader(const PixelShader* pPixelShader)
     {
-		m_PixelShader = std::move(pPixelShader);
+		m_PixelShader = pPixelShader;
 		return *this;
     }
 
@@ -204,7 +204,7 @@ namespace ZE::Render
 
     RenderGraphNodeMemoryAllocator::~RenderGraphNodeMemoryAllocator()
     {
-        ZE_CHECK(m_Chunks.empty());
+        ZE_ASSERT(m_Chunks.empty());
     }
 
     void RenderGraphNodeMemoryAllocator::Release()
@@ -232,14 +232,14 @@ namespace ZE::Render
     GraphNode& RenderGraph::AddNode(const std::string& nodeName)
     {
         auto iter = m_GraphNodes.find(nodeName);
-        ZE_CHECK(iter == m_GraphNodes.end());
+        ZE_ASSERT(iter == m_GraphNodes.end());
 
         auto result = m_GraphNodes.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(nodeName),
             std::forward_as_tuple(this, nodeName)
         );
-        ZE_CHECK(result.second);
+        ZE_ASSERT(result.second);
 
         GraphNode* prevTailNode = m_TailNode;
         m_TailNode = &result.first->second;
@@ -254,7 +254,7 @@ namespace ZE::Render
     {
         Build();
 
-		ZE_CHECK_LOG(m_Resources.size() == m_CurrentResourcesStates.size(), "Inconsistent number of graph resources and its states!");
+		ZE_ASSERT_LOG(m_Resources.size() == m_CurrentResourcesStates.size(), "Inconsistent number of graph resources and its states!");
 		
 		GraphExecutionContext context(*this);
 		auto* pFrameCmdList = m_RenderDevice.get().GetFrameCommandList();
@@ -262,8 +262,8 @@ namespace ZE::Render
 		pFrameCmdList->BeginRecord();
 		for (const auto* pNode : m_ExecutionNodes)
 		{
-			ZE_CHECK_LOG(pNode->m_InputResources.size() == pNode->m_InputResourceStates.size(), "Inconsistent number of node {} input resources and its states!", pNode->m_NodeName.c_str());
-			ZE_CHECK_LOG(pNode->m_OutputResources.size() == pNode->m_OutputResourceStates.size(), "Inconsistent number of node {} output resources and its states!", pNode->m_NodeName.c_str());
+			ZE_ASSERT_LOG(pNode->m_InputResources.size() == pNode->m_InputResourceStates.size(), "Inconsistent number of node {} input resources and its states!", pNode->m_NodeName.c_str());
+			ZE_ASSERT_LOG(pNode->m_OutputResources.size() == pNode->m_OutputResourceStates.size(), "Inconsistent number of node {} output resources and its states!", pNode->m_NodeName.c_str());
 
 			gsTempBufferBarriers.reserve(pNode->m_InputResourceStates.size());
 			gsTempTextureBarriers.reserve(pNode->m_InputResourceStates.size());
@@ -302,7 +302,7 @@ namespace ZE::Render
 				for (auto i = 0u; i < pNode->m_ColorAttachments.size(); ++i)
 				{
 					const auto& resource = GetResource(pNode->m_ColorAttachments[i]);
-					ZE_CHECK(resource.IsTypeOf<GraphResourceType::Texture>());
+					ZE_ASSERT(resource.IsTypeOf<GraphResourceType::Texture>());
 					
 					graphicPSOCreateDesc.AddColorOutput(resource.GetDesc<GraphResourceType::Texture>().m_Format);
 
@@ -313,7 +313,7 @@ namespace ZE::Render
 				if (pNode->m_DepthStencilAttachment.has_value())
 				{
 					const auto& resource = GetResource(*pNode->m_DepthStencilAttachment);
-					ZE_CHECK(resource.IsTypeOf<GraphResourceType::Texture>());
+					ZE_ASSERT(resource.IsTypeOf<GraphResourceType::Texture>());
 					graphicPSOCreateDesc.SetDepthStencilOutput(resource.GetDesc<GraphResourceType::Texture>().m_Format);
 
 					renderTargetPtrs.push_back(resource.GetResourceStorage<GraphResourceType::Texture>().get());
@@ -401,7 +401,7 @@ namespace ZE::Render
             return false;
 		};
 
-		ZE_EXEC_CHECK(fMarkAsVisited(this));
+		ZE_EXEC_ASSERT(fMarkAsVisited(this));
 
         // topology sort
         while (!inspectingNodes.empty())
@@ -427,9 +427,9 @@ namespace ZE::Render
 	
     uint32_t RenderGraph::GetResourceIndex(const GraphResourceHandle& handle) const
 	{
-		ZE_CHECK(handle.IsValid());
+		ZE_ASSERT(handle.IsValid());
 		const auto index = handle.m_ResourceId;
-		ZE_CHECK(index < static_cast<uint32_t>(m_Resources.size()));
+		ZE_ASSERT(index < static_cast<uint32_t>(m_Resources.size()));
 		return index;
 	}
 
@@ -484,7 +484,7 @@ namespace ZE::Render
 		}
 		else
 		{
-			ZE_CHECK(false);
+			ZE_ASSERT(false);
 		}
 		UpdateResourceState(handle, dstResourceState);
 	}

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Shader.h"
+#include "Render/Shader.h"
 #include "RenderDeviceChild.h"
 
 #include <vulkan/vulkan_core.h>
@@ -30,7 +30,7 @@ namespace ZE::RenderBackend
 		// TODO: more precise and clean
 		// [0] Vertex Shader
 		// [1] Pixel  Shader
-		std::array<std::shared_ptr<Shader>, 2>			m_Shaders = {};
+		std::array<const Render::Shader*, 2>				m_Shaders = {};
 
 		uint64_t GetHash() const;
 	};
@@ -70,7 +70,7 @@ namespace ZE::RenderBackend
 		static bool CreateInPlace(PipelineState* pPipelineState, const PipelineStateCreateDesc& CreateDesc);
 
 		BoundShaderResourceLocation FindBoundResourceLocation(const std::string& name);
-		EShaderBindingResourceType FindBoundResourceType(const std::string& name);
+		Render::EShaderBindingResourceType FindBoundResourceType(const std::string& name);
 
 		virtual EPipelineStateType GetPipelineType() const { return EPipelineStateType::Unknown; }
 		
@@ -81,8 +81,8 @@ namespace ZE::RenderBackend
 		VkPipelineLayout							m_Layout = nullptr;
 		VkPipeline									m_Pipeline = nullptr;
 		
-		std::unordered_map<std::string, std::pair<uint32_t, uint32_t>>	m_AllocatedSetBindingMap;
-		std::unordered_map<std::string, EShaderBindingResourceType>		m_AllocatedResourceTypeMap;
+		std::unordered_map<std::string, std::pair<uint32_t, uint32_t>>			m_AllocatedSetBindingMap;
+		std::unordered_map<std::string, Render::EShaderBindingResourceType>		m_AllocatedResourceTypeMap;
 
 	private:
 
@@ -102,8 +102,8 @@ namespace ZE::RenderBackend
 		void AddColorOutput(VkFormat format) { m_ColorInputFormatArray.emplace_back(format); }
 		void SetDepthStencilOutput(VkFormat format) { m_DepthStencilFormat = format; }
 
-		void SetVertexShader(std::shared_ptr<VertexShader> pVertexShader) { if (pVertexShader) { m_Shaders[0] = std::move(pVertexShader); } }
-		void SetPixelShaderOptional(std::shared_ptr<PixelShader> pPixelShader) { if (pPixelShader) { m_Shaders[1] = std::move(pPixelShader); } }
+		void SetVertexShader(const Render::VertexShader* pVertexShader) { if (pVertexShader) { m_Shaders[0] = pVertexShader; } }
+		void SetPixelShaderOptional(const Render::PixelShader* pPixelShader) { if (pPixelShader) { m_Shaders[1] = pPixelShader; } }
 	};
 	
 	class GraphicPipelineState final : public PipelineState

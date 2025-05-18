@@ -2,6 +2,9 @@
 
 #include <memory>
 
+#include "Render/StaticMesh.h"
+#include "Render/Shader.h"
+
 namespace ZE::Render
 {
 	class RenderGraph;
@@ -10,8 +13,6 @@ namespace ZE::Render
 
 namespace ZE::RenderBackend
 {
-	class VertexShader;
-	class PixelShader;
 	class RenderDevice;
 	class Buffer;
 }
@@ -29,10 +30,13 @@ namespace ZE::Renderer
 	
 	private:
 
-		std::shared_ptr<RenderBackend::VertexShader>		m_TriangleVS = nullptr;
-		std::shared_ptr<RenderBackend::PixelShader>			m_TrianglePS = nullptr;
+		Asset::AssetPtr<Render::VertexShader>				m_TriangleVS{"Content/Shader/Triangle.vsdr"};
+		Asset::AssetPtr<Render::PixelShader>				m_TrianglePS{"Content/Shader/Triangle.psdr"};
 
+		// TODO: make static mesh asset
 		std::shared_ptr<RenderBackend::Buffer>				m_VertexBuffer = nullptr;			
-		std::shared_ptr<RenderBackend::Buffer>				m_IndexBuffer = nullptr;			
+		std::shared_ptr<RenderBackend::Buffer>				m_IndexBuffer = nullptr;
+
+		Asset::AssetPtr<Render::StaticMesh>					m_TestAsset{"Content/Mesh/Cerberus/scene.gltf"};
 	};
 }

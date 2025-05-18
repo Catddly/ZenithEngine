@@ -1,7 +1,6 @@
 #include "RenderDevice.h"
 
 #include "Render/Render.h"
-#include "Engine/Engine.h"
 #include "Platform/Window.h"
 #include "RenderWindow.h"
 #include "VulkanHelper.h"
@@ -117,7 +116,7 @@ namespace ZE::RenderBackend
 			break;
 
 		default:
-			ZE_CHECK(false);
+			ZE_ASSERT(false);
 			break;
 		}
 
@@ -164,7 +163,7 @@ namespace ZE::RenderBackend
 			ZE_LOG_INFO("Required instance extension: {}", extension); 
 		});
 
-		ZE_EXEC_CHECK(IsGLFWInitialized());
+		ZE_EXEC_ASSERT(IsGLFWInitialized());
 		
 		uint32_t glfwRequiredInstanceExtensionCount = 0;
 		const char** pGLFWRequiredExtensions = glfwGetRequiredInstanceExtensions(&glfwRequiredInstanceExtensionCount);
@@ -174,7 +173,6 @@ namespace ZE::RenderBackend
 			return false;
 		}
 
-		ZE_LOG_INFO("GLFW required instance extensions count: {}", glfwRequiredInstanceExtensionCount);
 		for (uint32_t i = 0; i < glfwRequiredInstanceExtensionCount; ++i)
 		{
 			ZE_LOG_INFO("GLFW required instance extension: {}", pGLFWRequiredExtensions[i]);
@@ -360,7 +358,7 @@ namespace ZE::RenderBackend
 			return false;
 		}
 
-		ZE_LOG_INFO("Pick physical device info: \n\tname: {}\n\tdriver version: {}\n\tvendor id: {}",
+		ZE_LOG_INFO("Picked physical device: \n\tname: {}\n\tdriver version: {}\n\tvendor id: {}",
 			m_PhysicalDevices[m_PickedPhysicalDeviceIndex].m_Props.deviceName,
 			m_PhysicalDevices[m_PickedPhysicalDeviceIndex].m_Props.driverVersion,
 			m_PhysicalDevices[m_PickedPhysicalDeviceIndex].m_Props.vendorID
@@ -458,9 +456,9 @@ namespace ZE::RenderBackend
 
 		vkGetPhysicalDeviceFeatures2(GetPhysicalDevice().m_Handle, &physicalDeviceFeatures2);
 
-		ZE_CHECK(dynamicRenderingFeature.dynamicRendering);
-		//ZE_CHECK(descriptor_indexing.descriptorBindingPartiallyBound);
-		//ZE_CHECK(buffer_address.bufferDeviceAddress);
+		ZE_ASSERT(dynamicRenderingFeature.dynamicRendering);
+		//ZE_ASSERT(descriptor_indexing.descriptorBindingPartiallyBound);
+		//ZE_ASSERT(buffer_address.bufferDeviceAddress);
 
 		// Device creation
 		VkDeviceCreateInfo deviceCI = {};
@@ -562,7 +560,7 @@ namespace ZE::RenderBackend
 		uint32_t layerCount = 0;
 		VulkanCheckSucceed(vkEnumerateInstanceLayerProperties(&layerCount, nullptr));
 
-		ZE_CHECK(layerCount > 0);
+		ZE_ASSERT(layerCount > 0);
 
 		std::vector<VkLayerProperties> layerProps(layerCount);
 		VulkanCheckSucceed(vkEnumerateInstanceLayerProperties(&layerCount, layerProps.data()));
@@ -596,7 +594,7 @@ namespace ZE::RenderBackend
 		uint32_t extCount = 0;
 		VulkanCheckSucceed(vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr));
 
-		ZE_CHECK(extCount > 0);
+		ZE_ASSERT(extCount > 0);
 
 		std::vector<VkExtensionProperties> extProps(extCount);
 		VulkanCheckSucceed(vkEnumerateInstanceExtensionProperties(nullptr, &extCount, extProps.data()));
@@ -632,7 +630,7 @@ namespace ZE::RenderBackend
 		uint32_t layerCount = 0;
 		VulkanCheckSucceed(vkEnumerateDeviceLayerProperties(physicalDevice.m_Handle, &layerCount, nullptr));
 
-		ZE_CHECK(layerCount > 0);
+		ZE_ASSERT(layerCount > 0);
 
 		std::vector<VkLayerProperties> layerProps(layerCount);
 		VulkanCheckSucceed(vkEnumerateDeviceLayerProperties(physicalDevice.m_Handle, &layerCount, layerProps.data()));
@@ -668,7 +666,7 @@ namespace ZE::RenderBackend
 		uint32_t extCount = 0;
 		VulkanCheckSucceed(vkEnumerateDeviceExtensionProperties(physicalDevice.m_Handle, nullptr, &extCount, nullptr));
 
-		ZE_CHECK(extCount > 0);
+		ZE_ASSERT(extCount > 0);
 
 		std::vector<VkExtensionProperties> extProps(extCount);
 		VulkanCheckSucceed(vkEnumerateDeviceExtensionProperties(physicalDevice.m_Handle, nullptr, &extCount, extProps.data()));
@@ -784,7 +782,7 @@ namespace ZE::RenderBackend
 		if (m_DebugUtilsMessenger)
 		{
 			auto* vkDestroyDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_Inst, "vkDestroyDebugUtilsMessengerEXT"));
-			ZE_CHECK(vkDestroyDebugUtilsMessengerEXT);
+			ZE_ASSERT(vkDestroyDebugUtilsMessengerEXT);
 			vkDestroyDebugUtilsMessengerEXT(m_Inst, m_DebugUtilsMessenger, nullptr);
 		}
 
@@ -841,19 +839,19 @@ namespace ZE::RenderBackend
 
 	void RenderDevice::DeferRelease(IDeferReleaseResource* pDeferReleaseResource)
 	{
-		ZE_CHECK(m_HadBeganFrame);
+		ZE_ASSERT(m_HadBeganFrame);
 		m_FrameDeferReleaseQueues[m_FrameIndex].DeferRelease(pDeferReleaseResource);
 	}
 	
 	void RenderDevice::DeferRelease(const DeferReleaseLifetimeResource<Buffer>& deferReleaseResource)
 	{
-		ZE_CHECK(m_HadBeganFrame);
+		ZE_ASSERT(m_HadBeganFrame);
 		m_FrameDeferReleaseQueues[m_FrameIndex].DeferRelease(deferReleaseResource);
 	}
 	
 	void RenderDevice::DeferRelease(const DeferReleaseLifetimeResource<Texture>& deferReleaseResource)
 	{
-		ZE_CHECK(m_HadBeganFrame);
+		ZE_ASSERT(m_HadBeganFrame);
 		m_FrameDeferReleaseQueues[m_FrameIndex].DeferRelease(deferReleaseResource);
 	}
 
@@ -869,7 +867,7 @@ namespace ZE::RenderBackend
 	
 	void RenderDevice::BeginFrame()
 	{
-		ZE_CHECK(!m_HadBeganFrame);
+		ZE_ASSERT(!m_HadBeganFrame);
 		m_FrameDeferReleaseQueues[m_FrameIndex].ReleaseAllImmediately();
 		m_FrameCommandLists[m_FrameIndex]->Reset();
 		m_HadBeganFrame = true;
@@ -877,7 +875,7 @@ namespace ZE::RenderBackend
 	
 	void RenderDevice::EndFrame()
 	{
-		ZE_CHECK(m_HadBeganFrame);
+		ZE_ASSERT(m_HadBeganFrame);
 		m_FrameIndex = (m_FrameIndex + 1) % kSwapBufferCount;
 		m_HadBeganFrame = false;
 	}

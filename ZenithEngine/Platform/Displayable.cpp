@@ -14,7 +14,7 @@ namespace ZE::Platform
 
 	bool Displayable::Initialize()
 	{
-		ZE_CHECK(!m_IsInitialized);
+		ZE_ASSERT(!m_IsInitialized);
 
 		const int result = glfwInit();
 		m_IsInitialized = result == GLFW_TRUE;

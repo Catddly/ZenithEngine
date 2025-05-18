@@ -107,7 +107,7 @@ namespace ZE::TaskSystem
 			auto result = pExecutor->async([pExecutor, flow = taskGroup.m_TaskGraph, pPayload = handle.m_Payload]
 			{
 				// wait for all dependents
-				// TODO: [Optimization] waste of cpu cycles
+				// TODO: [Optimization] waste of cpu cycles, do NOT busy waiting
 				for (const auto& dependent : pPayload->m_Dependents)
 				{
 					dependent.m_Payload->Wait();

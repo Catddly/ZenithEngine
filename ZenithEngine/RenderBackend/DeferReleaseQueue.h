@@ -40,7 +40,7 @@ namespace ZE::RenderBackend
 	template <typename T>
 	void DeferReleaseLifetimeResource<T>::Release()
 	{
-		ZE_CHECK(std::shared_ptr<T>::use_count() == 1);
+		ZE_ASSERT(std::shared_ptr<T>::use_count() == 1);
 		std::shared_ptr<T>::reset();
 	}
 

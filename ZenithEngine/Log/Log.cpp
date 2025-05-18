@@ -11,7 +11,7 @@ namespace ZE::Log
 {
 	bool LogModule::InitializeModule()
 	{
-		ZE_CHECK(!m_Logger);
+		ZE_ASSERT(!m_Logger);
 
 		auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 		// %^...%$ will print text in color
@@ -32,7 +32,7 @@ namespace ZE::Log
 
 	void LogModule::ShutdownModule()
 	{
-		ZE_CHECK(m_Logger);
+		ZE_ASSERT(m_Logger);
 
 		m_Logger.reset();
 	}

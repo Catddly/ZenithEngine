@@ -77,8 +77,8 @@ namespace ZE::Render
 			RenderBackend::ERenderTargetStoreOperation storeOp = RenderBackend::ERenderTargetStoreOperation::Store,
 			const RenderBackend::DepthStencilClearValue& clearValue = {});
 
-		GraphNode& BindVertexShader(std::shared_ptr<RenderBackend::VertexShader> pVertexShader);
-		GraphNode& BindPixelShader(std::shared_ptr<RenderBackend::PixelShader> pPixelShader);
+		GraphNode& BindVertexShader(const VertexShader* pVertexShader);
+		GraphNode& BindPixelShader(const PixelShader* pPixelShader);
 		
 		void Execute(NodeJobType&& job);
 
@@ -96,8 +96,8 @@ namespace ZE::Render
 		std::vector<RenderBackend::RenderPassRenderTargetBinding>	m_ColorAttachmentBindings;
 		std::optional<GraphResourceHandle>							m_DepthStencilAttachment;
 		RenderBackend::RenderPassRenderTargetBinding				m_DepthStencilAttachmentBinding;
-		std::shared_ptr<RenderBackend::VertexShader>				m_VertexShader = nullptr;
-		std::shared_ptr<RenderBackend::PixelShader>					m_PixelShader = nullptr;
+		const VertexShader*											m_VertexShader = nullptr;
+		const PixelShader*											m_PixelShader = nullptr;
 
 		std::vector<GraphNode*>					            		m_PrecedeNodes;
 		std::vector<GraphNode*>					            		m_SucceedNodes;
@@ -314,7 +314,7 @@ namespace ZE::Render
 	{
 		const std::string typeName = Core::GetTypeName_Direct<T>();
 		auto iter = m_AllocatedMemory.find(typeName);
-		ZE_CHECK(iter == m_AllocatedMemory.end());
+		ZE_ASSERT(iter == m_AllocatedMemory.end());
 
 		T* pMemory = m_Allocator.Allocate<T>();
 		m_AllocatedMemory.insert({ std::move(typeName), pMemory });

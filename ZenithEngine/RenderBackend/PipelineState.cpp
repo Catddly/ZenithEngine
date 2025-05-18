@@ -3,41 +3,40 @@
 #include "Log/Log.h"
 #include "Core/Hash.h"
 #include "RenderDevice.h"
-#include "Shader.h"
+#include "Render/Shader.h"
 #include "VulkanHelper.h"
 #include "DescriptorCache.h"
 
 #include <refl.hpp>
 
 #include <unordered_map>
-#include <ranges>
 
 namespace ZE::RenderBackend
 {
-	static VkDescriptorType ToVkDescriptorType(EShaderBindingResourceType type)
+	static VkDescriptorType ToVkDescriptorType(Render::EShaderBindingResourceType type)
 	{
 		switch (type)
 		{
-		case EShaderBindingResourceType::Unknown: return VK_DESCRIPTOR_TYPE_MAX_ENUM;
-		case EShaderBindingResourceType::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		case EShaderBindingResourceType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		case EShaderBindingResourceType::Texture2D: return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+		case Render::EShaderBindingResourceType::Unknown: return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+		case Render::EShaderBindingResourceType::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		case Render::EShaderBindingResourceType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		case Render::EShaderBindingResourceType::Texture2D: return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 		default:
 			break;
 		}
 
-		ZE_CHECK(false);
+		ZE_ASSERT(false);
 		return VK_DESCRIPTOR_TYPE_MAX_ENUM;
 	}
 
-	static VkShaderStageFlagBits GetShaderVkType(const std::shared_ptr<Shader>& pShader)
+	static VkShaderStageFlagBits GetShaderVkType(const Render::Shader* pShader)
 	{
-		if (pShader->CanDowncastTo<VertexShader>())
+		if (pShader->CanDowncastTo<Render::VertexShader>())
 		{
 			return VK_SHADER_STAGE_VERTEX_BIT;
 		}
 		
-		if (pShader->CanDowncastTo<PixelShader>())
+		if (pShader->CanDowncastTo<Render::PixelShader>())
 		{
 			return VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
@@ -65,7 +64,7 @@ namespace ZE::RenderBackend
 	
 	bool PipelineState::CreateInPlace(PipelineState* pPipelineState, const PipelineStateCreateDesc& CreateDesc)
 	{
-		std::unordered_map<EShaderBindingResourceType, uint32_t> resourceCountMap;
+		std::unordered_map<Render::EShaderBindingResourceType, uint32_t> resourceCountMap;
 		std::vector<std::vector<VkDescriptorSetLayoutBinding>> setLayoutBindingArray;
 
 		for (auto& pShader : CreateDesc.m_Shaders)
@@ -160,14 +159,14 @@ namespace ZE::RenderBackend
 		return {};
 	}
 	
-	EShaderBindingResourceType PipelineState::FindBoundResourceType(const std::string& name)
+	Render::EShaderBindingResourceType PipelineState::FindBoundResourceType(const std::string& name)
 	{
 		if (auto iter = m_AllocatedResourceTypeMap.find(name); iter != m_AllocatedResourceTypeMap.end())
 		{
 			return iter->second;
 		}
 
-		return EShaderBindingResourceType::Unknown;
+		return Render::EShaderBindingResourceType::Unknown;
 	}
 
 	PipelineState::~PipelineState()
@@ -207,6 +206,7 @@ namespace ZE::RenderBackend
 
 	GraphicPipelineState* GraphicPipelineState::Create(RenderDevice& renderDevice, const GraphicPipelineStateCreateDesc& CreateDesc)
 	{
+		// Must have at least vertex shader
 		if (!CreateDesc.m_Shaders[0])
 		{
 			return nullptr;
@@ -271,9 +271,8 @@ namespace ZE::RenderBackend
 		multisampleStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisampleStateCI.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-		const auto* pVertexShader = static_cast<const VertexShader*>(CreateDesc.m_Shaders[0].get());
-		const auto* pPixelShader = static_cast<const PixelShader*>(CreateDesc.m_Shaders[1].get());
-		// auto* pPixelShader = CreateDesc.m_Shaders[1] ? static_cast<const PixelShader*>(CreateDesc.m_Shaders[1].get()) : nullptr;
+		const auto* pVertexShader = static_cast<const Render::VertexShader*>(CreateDesc.m_Shaders[0]);
+		const auto* pPixelShader = static_cast<const Render::PixelShader*>(CreateDesc.m_Shaders[1]);
 		
 		VkVertexInputBindingDescription vertexInputBinding = {};
 		vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;

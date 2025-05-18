@@ -54,7 +54,7 @@ namespace ZE::TaskSystem
 		
 	private:
 
-		std::shared_ptr<TaskHandlePayload>			m_Payload = nullptr;
+		std::shared_ptr<TaskHandlePayload>				m_Payload = nullptr;
 	};
 	
 	class TaskHandlePayload
@@ -70,10 +70,8 @@ namespace ZE::TaskSystem
 		
 	private:
 
-		// Very ugly!!
-		std::shared_future<void>					m_Result;
-		// std::variant<std::shared_future<>>			m_Result;
-		std::vector<TaskHandle>						m_Dependents;
+		std::shared_future<void>						m_Result;
+		std::vector<TaskHandle>							m_Dependents;
 	};
 
 	class TaskGroupTaskHandle
@@ -86,7 +84,7 @@ namespace ZE::TaskSystem
 			
 	private:
 
-		tf::Task 								m_Task;
+		tf::Task 										m_Task;
 	};
 	
 	class TaskGroup
@@ -104,7 +102,7 @@ namespace ZE::TaskSystem
 
 	private:
 		
-		std::shared_ptr<tf::Taskflow>			m_TaskGraph;
+		std::shared_ptr<tf::Taskflow>					m_TaskGraph;
 	};
 	
 	class TaskManager final
@@ -151,7 +149,7 @@ namespace ZE::TaskSystem
 	template <typename Func, typename RetType>
 	TaskGroupTaskHandle TaskGroup::AddTask(Func&& func)
 	{
-		ZE_CHECK(m_TaskGraph);
+		ZE_ASSERT(m_TaskGraph);
 		static_assert(std::is_same_v<RetType, void>);
 		
 		TaskGroupTaskHandle handle;
@@ -177,7 +175,7 @@ namespace ZE::TaskSystem
 			std::future<void> result = pExecutor->async([this, localFunc = std::forward<Func>(func), pPayload = handle.m_Payload]
 			{
 				// wait for all dependents
-				// TODO: [Optimization] waste of cpu cycles
+				// TODO: [Optimization] waste of cpu cycles, do NOT busy waiting
 				for (const auto& dependent : pPayload->m_Dependents)
 				{
 					dependent.m_Payload->Wait();
@@ -198,60 +196,4 @@ namespace ZE::TaskSystem
 		handle.m_Payload->m_Result = result.share();
 		return handle;
 	}
-	
-	// Task to wrap any member function, static function or lambda into a lifetime object
-	// Only Accept a void() function for now.
-	// class Task
-	// {
-	// 	friend class TaskManager;
-	//
-	// private:
-	// 	
-	// 	struct FuncVTable
-	// 	{
-	// 		void(*m_TaskFuncRedirector)(void* pFuncStorage);
-	// 		void(*m_ReleaseTaskMemory)(void* pFuncStorage);
-	// 	};
-	// 	
-	// 	template <typename Func>
-	// 	static constexpr FuncVTable skVtableEntry =
-	// 	{
-	// 		.m_TaskFuncRedirector = +[](void* pFuncStorage){ (*static_cast<Func*>(pFuncStorage))(); },
-	// 		.m_ReleaseTaskMemory = +[](void* pFuncStorage){ auto* pStorage = static_cast<Func*>(pFuncStorage); delete pStorage; }
-	// 	};
-	// 	
-	// public:
-	//
-	// 	template <typename Func>
-	// 	explicit Task(Func func)
-	// 		: m_VTable(&skVtableEntry<Func>)
-	// 	{
-	// 		auto* pFunc = new Func(std::move(func));
-	// 		m_FuncStorage = static_cast<void*>(pFunc);
-	// 	}
-	//
-	// 	Task(const Task&) = delete;
-	// 	Task& operator=(const Task&) = delete;
-	// 	Task(Task&&) = default;
-	// 	Task& operator=(Task&&) = default;
-	//
-	// 	~Task()
-	// 	{
-	// 		if (m_VTable)
-	// 		{
-	// 			m_VTable->m_ReleaseTaskMemory(m_FuncStorage);
-	// 		}
-	// 	}
-	//
-	// private:
-	//
-	// 	void Execute() const;
-	// 	
-	// private:
-	//
-	// 	const FuncVTable*								m_VTable = nullptr;
-	// 	void*											m_FuncStorage = nullptr;
-	// 	
-	// 	bool											m_HadDispatched = false;
-	// };
 }

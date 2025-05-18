@@ -5,13 +5,14 @@ set_targetdir("$(projectdir)/Target")
 set_configdir("$(projectdir)/")
 
 add_packagedirs("ThirdParty/")
-add_requires("taskflow", "spdlog", "glm", "glfw")
+add_requires("taskflow", "spdlog", "glm", "glfw", "assimp")
+add_requires("assimp")
 
 target("ZenithEngine")
     set_kind("shared")
     add_defines("ZENITH_ENGINE_DLL_EXPORT=1", "GLFW_VULKAN_STATIC")
 
-    add_packages("taskflow", "spdlog", "glm", "glfw")
+    add_packages("taskflow", "spdlog", "glm", "glfw", "assimp")
 
     add_headerfiles("**.h", "**.hpp")
     add_files("**.cpp|ThirdParty/vulkan/**.c|ThirdParty/vulkan/**.cpp")

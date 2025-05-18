@@ -1,11 +1,11 @@
 #pragma once
 
 #include "ModuleDefines.h"
-#include "Engine/Engine.h"
+#include "Core/Engine.h"
 
 namespace ZE
 {
-	ENGINE_API void RunZenithEngine(Engine::Engine& engine);
+	ENGINE_API void RunZenithEngine(Core::Engine& engine);
 
 	class ENGINE_API RunEngineScoped
 	{
@@ -23,6 +23,6 @@ namespace ZE
 
 	private:
 
-		Engine::Engine				m_Engine;
+		Core::Engine				m_Engine;
 	};
 }

@@ -106,7 +106,7 @@ namespace ZE::RenderBackend
 
 	protected:
 
-		const PhysicalDevice& GetPhysicalDevice() const { ZE_CHECK(m_PickedPhysicalDeviceIndex != -1); return m_PhysicalDevices[m_PickedPhysicalDeviceIndex]; }
+		const PhysicalDevice& GetPhysicalDevice() const { ZE_ASSERT(m_PickedPhysicalDeviceIndex != -1); return m_PhysicalDevices[m_PickedPhysicalDeviceIndex]; }
 	
 	private:
 

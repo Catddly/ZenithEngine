@@ -16,7 +16,7 @@ namespace ZE::RenderBackend
 
 	RenderWindow::~RenderWindow()
 	{
-		ZE_CHECK(!m_Swapchain);
+		ZE_ASSERT(!m_Swapchain);
 	}
 
 	bool RenderWindow::Initialize()
@@ -81,15 +81,21 @@ namespace ZE::RenderBackend
 		m_Swapchain = nullptr;
 	}
 	
-	void RenderWindow::Resize(uint32_t width, uint32_t height)
+	bool RenderWindow::Resize(uint32_t width, uint32_t height)
 	{
-		Window::Resize(width, height);
-		CreateOrRecreateSwapchain();
+		m_HadResized = Window::Resize(width, height);
+		return m_HadResized;
 	}
 
 	void RenderWindow::BeginFrame()
 	{
-		ZE_CHECK(!m_HadBeganRendering);
+		ZE_ASSERT(!m_HadBeganRendering);
+
+		if (m_HadResized)
+		{
+			CreateOrRecreateSwapchain();
+			m_HadResized = false;
+		}
 
 		const uint32_t frameIndex = GetRenderDevice().GetFrameIndex(); 
 		
@@ -115,7 +121,7 @@ namespace ZE::RenderBackend
 	
 	void RenderWindow::EndFrame()
 	{
-		ZE_CHECK(m_HadBeganRendering);
+		ZE_ASSERT(m_HadBeganRendering);
 		m_HadBeganRendering = false;
 	}
 
@@ -138,7 +144,7 @@ namespace ZE::RenderBackend
 		}
 		else if (result != VK_SUCCESS)
 		{
-			ZE_CHECK_LOG(false, "Failed to present swapchain image!");
+			ZE_ASSERT_LOG(false, "Failed to present swapchain image!");
 		}
 	}
 
@@ -213,7 +219,7 @@ namespace ZE::RenderBackend
 			extent.y = static_cast<int>(surfaceCaps.currentExtent.height);
 		}
 
-		ZE_CHECK((extent != glm::ivec2{0, 0}));
+		ZE_ASSERT((extent != glm::ivec2{0, 0}));
 
 		// get present mode
 		//-------------------------------------------------------------------------
@@ -343,7 +349,7 @@ namespace ZE::RenderBackend
 			return false;
 		}
 
-		ZE_CHECK(m_Images.size() == static_cast<std::size_t>(swapchainImageCount));
+		ZE_ASSERT(m_Images.size() == static_cast<std::size_t>(swapchainImageCount));
 		VulkanCheckSucceed(vkGetSwapchainImagesKHR(GetRenderDevice().GetNativeDevice(), m_Swapchain, &swapchainImageCount, m_Images.data()));
 
 		for (uint32_t i = 0; i < m_SwapchainTextures.size(); ++i)

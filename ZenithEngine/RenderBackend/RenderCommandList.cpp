@@ -179,7 +179,7 @@ namespace ZE::RenderBackend
 
                 default:
                 {
-                	ZE_CHECK(false);
+                	ZE_ASSERT(false);
                 	return {};
                 }
             }
@@ -194,7 +194,7 @@ namespace ZE::RenderBackend
 				case ERenderTargetLoadOperation::Load: return VK_ATTACHMENT_LOAD_OP_LOAD;
 				case ERenderTargetLoadOperation::DontCare: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 			}
-			ZE_CHECK(false);
+			ZE_ASSERT(false);
 			return VK_ATTACHMENT_LOAD_OP_MAX_ENUM;
 		}
 
@@ -205,7 +205,7 @@ namespace ZE::RenderBackend
 				case ERenderTargetStoreOperation::Store: return VK_ATTACHMENT_STORE_OP_STORE;
 				case ERenderTargetStoreOperation::DontCare: return VK_ATTACHMENT_STORE_OP_DONT_CARE;
 			}
-			ZE_CHECK(false);
+			ZE_ASSERT(false);
 			return VK_ATTACHMENT_STORE_OP_MAX_ENUM;
 		}
 	}
@@ -266,7 +266,7 @@ namespace ZE::RenderBackend
 	
 	BufferBarrierTransition GetBufferBarrierTransition(const BufferBarrier& bufferBarrier)
 	{
-        ZE_CHECK(bufferBarrier.m_Buffer);
+        ZE_ASSERT(bufferBarrier.m_Buffer);
 
         BufferBarrierTransition barrier;
         barrier.m_SrcStage = 0;
@@ -325,7 +325,7 @@ namespace ZE::RenderBackend
 	
 	TextureBarrierTransition GetTextureBarrierTransition(const TextureBarrier& textureBarrier)
 	{
-		ZE_CHECK(textureBarrier.m_Texture);
+		ZE_ASSERT(textureBarrier.m_Texture);
 
 		TextureBarrierTransition barrier = {};
         barrier.m_SrcStage = 0;
@@ -383,7 +383,7 @@ namespace ZE::RenderBackend
                     break;
 					case TextureMemoryLayout::GeneralAndPresentation:
 					{
-						ZE_CHECK(false);
+						ZE_ASSERT(false);
 						barrier.m_Barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 					}
                 	break;
@@ -424,7 +424,7 @@ namespace ZE::RenderBackend
                 break;
                 case TextureMemoryLayout::GeneralAndPresentation:
                 {
-                	ZE_CHECK(false);
+                	ZE_ASSERT(false);
                 	barrier.m_Barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
                 }
             	break;
@@ -581,7 +581,7 @@ namespace ZE::RenderBackend
 
 	        default:
 	        {
-	        	ZE_CHECK(false);
+	        	ZE_ASSERT(false);
 	        	return {};
 	        }
 		}
@@ -622,7 +622,7 @@ namespace ZE::RenderBackend
 
 	bool RenderCommandList::BeginRecord()
 	{
-		ZE_CHECK(!m_IsCommandRecording);
+		ZE_ASSERT(!m_IsCommandRecording);
 		VulkanZeroStruct(VkCommandBufferBeginInfo, beginInfo);
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -635,7 +635,7 @@ namespace ZE::RenderBackend
 
 	void RenderCommandList::EndRecord()
 	{
-		ZE_CHECK(m_IsCommandRecording);
+		ZE_ASSERT(m_IsCommandRecording);
 		VulkanCheckSucceed(vkEndCommandBuffer(m_CommandBuffer));
 		m_IsCommandRecording = false;
 	}
@@ -647,8 +647,8 @@ namespace ZE::RenderBackend
 
 	void RenderCommandList::CmdBeginDynamicRendering(const glm::uvec2& viewportSize, std::span<Texture*> renderTargets, std::span<RenderPassRenderTargetBinding> colorBindings) const
 	{
-		ZE_CHECK(m_IsCommandRecording);
-		ZE_CHECK(renderTargets.size() == colorBindings.size());
+		ZE_ASSERT(m_IsCommandRecording);
+		ZE_ASSERT(renderTargets.size() == colorBindings.size());
 		
 		if (renderTargets.empty())
 		{
@@ -682,7 +682,7 @@ namespace ZE::RenderBackend
 			}
 			else if (std::holds_alternative<DepthStencilClearValue>(attachment.m_ClearValue))
 			{
-				ZE_CHECK(!bIsDepthStencil);
+				ZE_ASSERT(!bIsDepthStencil);
 				bIsDepthStencil = true;
 				const DepthStencilClearValue& depthClearValue = std::get<DepthStencilClearValue>(attachment.m_ClearValue);
 				attachmentInfo.clearValue.depthStencil.depth = depthClearValue.m_ClearDepth;
@@ -714,14 +714,14 @@ namespace ZE::RenderBackend
 
 	void RenderCommandList::CmdEndDynamicRendering() const
 	{
-		ZE_CHECK(m_IsCommandRecording);
+		ZE_ASSERT(m_IsCommandRecording);
 
 		vkCmdEndRendering(m_CommandBuffer);
 	}
 	
 	void RenderCommandList::CmdSetViewport(const glm::uvec2& viewportSize) const
 	{
-		ZE_CHECK(m_IsCommandRecording);
+		ZE_ASSERT(m_IsCommandRecording);
 
 		VkViewport viewport;
 		viewport.x = 0.0f;
@@ -736,7 +736,7 @@ namespace ZE::RenderBackend
 	
 	void RenderCommandList::CmdSetScissor(const glm::uvec2& viewportSize) const
 	{
-		ZE_CHECK(m_IsCommandRecording);
+		ZE_ASSERT(m_IsCommandRecording);
 
 		VkRect2D scissor;
 		scissor.offset.x = 0;
@@ -749,14 +749,14 @@ namespace ZE::RenderBackend
 
 	void RenderCommandList::CmdDraw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) const
 	{
-		ZE_CHECK(m_IsCommandRecording);
+		ZE_ASSERT(m_IsCommandRecording);
 
 		vkCmdDraw(m_CommandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
 	}
 	
 	void RenderCommandList::CmdDrawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) const
 	{
-		ZE_CHECK(m_IsCommandRecording);
+		ZE_ASSERT(m_IsCommandRecording);
 
 		vkCmdDrawIndexed(m_CommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 	}
@@ -764,15 +764,15 @@ namespace ZE::RenderBackend
 	// pipeline resource commands
 	void RenderCommandList::CmdBindPipeline(VkPipelineBindPoint bindPoint, PipelineState* pPipelineState) const
 	{
-		ZE_CHECK(m_IsCommandRecording);
-		ZE_CHECK(pPipelineState);
+		ZE_ASSERT(m_IsCommandRecording);
+		ZE_ASSERT(pPipelineState);
 		
 		vkCmdBindPipeline(m_CommandBuffer, bindPoint, pPipelineState->m_Pipeline);
 	}
 	
 	void RenderCommandList::CmdBindShaderResource(VkPipelineBindPoint bindPoint, PipelineState* pPipelineState, const std::vector<VkDescriptorSet>& sets) const
 	{
-		ZE_CHECK(m_IsCommandRecording);
+		ZE_ASSERT(m_IsCommandRecording);
 
 		vkCmdBindDescriptorSets(m_CommandBuffer, bindPoint, pPipelineState->m_Layout,
 			0, static_cast<uint32_t>(sets.size()), sets.data(),
@@ -781,8 +781,8 @@ namespace ZE::RenderBackend
 	
 	void RenderCommandList::CmdBindVertexInput(const Buffer* pVertexBuffer, const Buffer* pIndexBuffer) const
 	{
-		ZE_CHECK(m_IsCommandRecording);
-		ZE_CHECK(pVertexBuffer);
+		ZE_ASSERT(m_IsCommandRecording);
+		ZE_ASSERT(pVertexBuffer);
 
 		// TODO: support vertex batch
 		const VkBuffer vertexBuffers[1] = { pVertexBuffer->GetNativeHandle() };
@@ -798,7 +798,7 @@ namespace ZE::RenderBackend
 	// barrier commands
 	void RenderCommandList::CmdResourceBarrier(const GlobalMemoryBarrier* pMemoryBarrier, std::span<const BufferBarrier> pBufferBarriers, std::span<const TextureBarrier> pTextureBarriers) const
 	{
-		ZE_CHECK(m_IsCommandRecording);
+		ZE_ASSERT(m_IsCommandRecording);
 		
 		VkPipelineStageFlags srcStageFlag = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 		VkPipelineStageFlags dstStageFlag = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
@@ -842,7 +842,7 @@ namespace ZE::RenderBackend
 	// transfer commands
 	void RenderCommandList::CmdCopyBuffer(Buffer* pSrcBuffer, Buffer* pDstBuffer, uint32_t srcOffset) const
 	{
-		ZE_CHECK(m_IsCommandRecording);
+		ZE_ASSERT(m_IsCommandRecording);
 
 		VkBufferCopy bufferCopy;
 		bufferCopy.size = pDstBuffer->GetDesc().m_Size;

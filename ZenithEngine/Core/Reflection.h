@@ -186,9 +186,12 @@ namespace ZE::Core
 	using ReflectImplFriend = ::refl_impl::metadata::type_info__<T>;
 }
 
-#define ZE_CLASS_REFL() public: \
+#define ZE_CLASS_REFL(TypeName) public: \
 	virtual const std::string& GetTypeName() const { return ZE::Core::TypeInfo::Get<::refl::trait::remove_qualifiers_t<decltype(*this)>>().GetTypeName(); } \
 	template <ZE::Core::Reflectable Base> \
 	bool IsDerivedFrom() { return ZE::Core::TypeInfo::Get<::refl::trait::remove_qualifiers_t<decltype(*this)>>().IsDerivedFrom<Base>(); } \
 	template <ZE::Core::Reflectable T> \
-	bool CanDowncastTo() { return std::strcmp(GetTypeName().c_str(), refl::type_descriptor<T>().name.c_str()) == 0; }
+	bool CanDowncastTo() { return std::strcmp(GetTypeName().c_str(), refl::type_descriptor<T>().name.c_str()) == 0; } \
+	template <ZE::Core::Reflectable T> \
+	bool CanDowncastTo() const { return std::strcmp(GetTypeName().c_str(), refl::type_descriptor<const T>().name.c_str()) == 0; } \
+	friend Core::ReflectImplFriend<TypeName>;

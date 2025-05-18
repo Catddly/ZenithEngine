@@ -17,7 +17,7 @@ namespace ZE::RenderBackend
 			break;
 		}
 
-		ZE_CHECK(false);
+		ZE_ASSERT(false);
 		return VMA_MEMORY_USAGE_UNKNOWN;
 	}
 

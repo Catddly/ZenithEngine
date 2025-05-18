@@ -38,6 +38,17 @@ namespace ZE::Renderer
 	
 	bool TriangleRenderer::Prepare(RenderBackend::RenderDevice& renderDevice)
 	{
+		// Load assets
+		{
+			Asset::AssetManager::Get().RequestLoad(m_TestAsset);
+			Asset::AssetManager::Get().RequestLoad(m_TriangleVS);
+			Asset::AssetManager::Get().RequestLoad(m_TrianglePS);
+
+			// TODO: Only loaded shaders can populate valid draw call.
+			Asset::AssetManager::Get().WaitUntilAllRequestsFinished();
+		}
+
+		// Create static GPU resources
 		RenderBackend::BufferDesc bufferDesc("triangle vertex buffer");
 		bufferDesc.m_Size = static_cast<uint32_t>(sizeof(Vertex)) * kTriangleVertices.size();
 		bufferDesc.m_Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -60,28 +71,17 @@ namespace ZE::Renderer
 			return false;
 		}
 
-		m_TriangleVS = std::make_shared<RenderBackend::VertexShader>(renderDevice, "../ZenithEngine/Shaders/TriangleVS.spirv");
-		if (!m_TriangleVS || !m_TriangleVS->IsValid())
-		{
-			ZE_CHECK_LOG(false, "Failed to find valid triangle vertex shader!");
-			return false;
-		}
-
-		m_TrianglePS = std::make_shared<RenderBackend::PixelShader>(renderDevice, "../ZenithEngine/Shaders/TrianglePS.spirv");
-		if (!m_TrianglePS || !m_TrianglePS->IsValid())
-		{
-			return false;
-		}
-			
-		RenderBackend::Shader::LayoutBuilder vsBuilder(m_TriangleVS.get());
-		vsBuilder.BindResource(0, "view", RenderBackend::EShaderBindingResourceType::UniformBuffer);
+		// Fill shader layout
+		Render::Shader::LayoutBuilder vsBuilder(m_TriangleVS.GetAsset());
+		vsBuilder.BindResource(0, "view", Render::EShaderBindingResourceType::UniformBuffer);
 		vsBuilder.Build();
 
-		RenderBackend::VertexShader::InputLayoutBuilder inputBuilder(m_TriangleVS.get());
+		Render::VertexShader::InputLayoutBuilder inputBuilder(m_TriangleVS.GetAsset());
 		inputBuilder.AddLayout(VK_FORMAT_R32G32B32_SFLOAT, 12, 0);
 		inputBuilder.AddLayout(VK_FORMAT_R32G32B32_SFLOAT, 12, 12);
 		inputBuilder.Build();
-		
+
+		// Pre-transition static resource to target barrier state
 		{
 			auto pCmdList = renderDevice.GetImmediateCommandList();
 			constexpr RenderBackend::ERenderResourceState prevAccess[] = {RenderBackend::ERenderResourceState::Undefined};
@@ -119,9 +119,6 @@ namespace ZE::Renderer
 	
 	void TriangleRenderer::Release(RenderBackend::RenderDevice& renderDevice)
 	{
-		m_TriangleVS.reset();
-		m_TrianglePS.reset();
-		
 		m_VertexBuffer.reset();
 		m_IndexBuffer.reset();
 	}
@@ -130,7 +127,7 @@ namespace ZE::Renderer
 	{
 		using namespace ZE::Render;
 		using namespace ZE::RenderBackend;
-		
+
 		auto vbHandle = renderGraph.ImportResource(m_VertexBuffer, ERenderResourceState::VertexBuffer);
 		auto idHandle = renderGraph.ImportResource(m_IndexBuffer, ERenderResourceState::IndexBuffer);
 		
@@ -157,8 +154,8 @@ namespace ZE::Renderer
 		drawTriangleNode
 			.AddColorRenderTarget(outputColorRT, ERenderTargetLoadOperation::DontCare, ERenderTargetStoreOperation::Store, CommonColors::m_Black)
 			.BindDepthStencilRenderTarget(outputDepthRT, ERenderTargetLoadOperation::DontCare, ERenderTargetStoreOperation::Store)
-			.BindVertexShader(m_TriangleVS)
-			.BindPixelShader(m_TrianglePS)
+			.BindVertexShader(m_TriangleVS.GetAsset())
+			.BindPixelShader(m_TrianglePS.GetAsset())
 			.Execute([matrixBufferHandle, vbHandle, idHandle, outputColorRT, &matrices](GraphExecutionContext& context)
 		{
 			const auto& desc = context.GetDesc<GraphResourceType::Texture>(outputColorRT);

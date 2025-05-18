@@ -18,8 +18,8 @@ namespace ZE::Render
 	{
 	public:
 
-		RenderModule(Engine::Engine& engine)
-			: Core::IModule(engine, Core::EModuleInitializePhase::Init, "Render")
+		RenderModule(Core::Engine& engine)
+			: IModule(engine, Core::EModuleInitializePhase::Init, "Render")
 		{}
 
 		virtual bool InitializeModule() override;
